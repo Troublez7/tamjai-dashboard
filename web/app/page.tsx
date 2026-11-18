@@ -72,6 +72,15 @@ function groupReports(list: Report[]): Group[] {
   }
   return groups.reverse(); // ใหม่ → เก่า
 }
+function mergeOrders(list: Order[]) {
+  // นับเฉพาะออเดอร์ที่ชำระแล้ว (active / completed) รวมเป็นหลอดเดียว
+  const paid = list.filter(o => o.status === 'active' || o.status === 'completed');
+  if (paid.length === 0) return null;
+  const target = paid.reduce((s, o) => s + Number(o.target), 0);
+  const progress = paid.reduce((s, o) => s + Number(o.progress), 0);
+  const done = paid.every(o => o.status === 'completed');
+  return { target, progress, done, count: paid.length };
+}
 
 export default function Home() {
   const [user,setUser] = useState<User|null>(null);
@@ -113,6 +122,8 @@ export default function Home() {
 
   const matchCount = reports.filter(r => r.result === 'victory' || r.result === 'defeat').length;
   const groups = groupReports(reports);
+  const merged = mergeOrders(orders);
+  const pendingCount = orders.filter(o => o.status === 'pending_payment' || o.status === 'pending_review').length;
 
   return (
     <main className="wrap">
@@ -133,32 +144,32 @@ export default function Home() {
         <article><small>สถานะ</small><strong className="green">CONNECTED</strong></article>
       </section>
 
-      {orders.length > 0 && (
-        <>
-          <h2>งานของคุณ</h2>
-          <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
-            {orders.map(o => {
-              const pct = Math.min(100, Math.floor((Number(o.progress) / Number(o.target)) * 100));
-              return (
-                <article className="report" key={o.id}>
-                  <div className="reporttop">
-                    <strong>Summer Pearls {Number(o.target).toLocaleString()}</strong>
-                    <span className="pill">
-                      {({ completed: 'เสร็จแล้ว', active: 'กำลังฟาร์ม', pending_review: 'รอตรวจสลิป', pending_payment: 'รอชำระเงิน', cancelled: 'ยกเลิก' } as Record<string, string>)[o.status] ?? o.status}
-                    </span>
-                  </div>
-                  <div className={`bar ${pct >= 100 ? 'bar-done' : ''}`}>
-                    <div className="bar-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
-                  </div>
-                  <small>
-                    {Number(o.progress).toLocaleString()} / {Number(o.target).toLocaleString()} · <span className="pct">{pct}%</span>
-                  </small>
-                </article>
-              );
-            })}
+      {(merged || pendingCount > 0) && (
+  <>
+    <h2>งานของคุณ</h2>
+    {merged && (() => {
+      const pct = Math.min(100, Math.floor((merged.progress / merged.target) * 100));
+      return (
+        <article className="report" style={{ marginBottom: 14 }}>
+          <div className="reporttop">
+            <strong>Summer Pearls {merged.target.toLocaleString()}</strong>
+            <span className="pill">{merged.done ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}</span>
           </div>
-        </>
-      )}
+          <div className={`bar ${pct >= 100 ? 'bar-done' : ''}`}>
+            <div className="bar-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
+          </div>
+          <small>
+            {merged.progress.toLocaleString()} / {merged.target.toLocaleString()} · <span className="pct">{pct}%</span>
+            {merged.count > 1 ? ` · รวม ${merged.count} ออเดอร์` : ''}
+          </small>
+        </article>
+      );
+    })()}
+    {pendingCount > 0 && (
+      <p className="muted">มี {pendingCount} ออเดอร์รอตรวจสอบการชำระเงิน หลอดจะเริ่มเมื่อยืนยันแล้ว</p>
+    )}
+  </>
+)}
 
       <h2>Match History</h2>
       {notice && <p className="notice">{notice}</p>}
