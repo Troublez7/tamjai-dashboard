@@ -47,24 +47,31 @@ async function persistScreenshot(url, ownerId, messageId) {
 // Add pearl progress to the worker's active order.
 async function updateOrderProgress(worker, report) {
   if (!['victory', 'defeat'].includes(report.result) || report.pearls_session == null) return;
-  const { data: order, error } = await supabase.from('orders')
+  const { data: orders, error } = await supabase.from('orders')
     .select('id, target, progress, last_session_value')
-    .eq('worker_id', worker.id).eq('status', 'active').maybeSingle();
-  if (error || !order) return;
+    .eq('worker_id', worker.id).eq('status', 'active')
+    .order('created_at', { ascending: true });
+  if (error || !orders?.length) return;
 
   const current = report.pearls_session;
-  const last = order.last_session_value;
-  // First report = baseline (no progress added). If the value dropped, a new session started.
-  const delta = last == null ? 0 : current >= last ? current - last : current;
-  const progress = Math.min(Number(order.target), Number(order.progress) + delta);
-  const done = progress >= Number(order.target);
+  const last = orders[0].last_session_value;
+  // ครั้งแรกตั้ง baseline ไม่บวก, ถ้ายอดลดลงแปลว่าเซสชันใหม่
+  let remaining = last == null ? 0 : current >= last ? current - last : current;
 
-  await supabase.from('orders').update({
-    progress,
-    last_session_value: current,
-    ...(done ? { status: 'completed', completed_at: new Date().toISOString() } : {})
-  }).eq('id', order.id);
-  console.log(`Order ${order.id}: ${progress}/${order.target}${done ? ' (completed)' : ''}`);
+  for (const o of orders) {
+    const room = Number(o.target) - Number(o.progress);
+    const add = Math.min(room, remaining);
+    const progress = Number(o.progress) + add;
+    remaining -= add;
+    const done = progress >= Number(o.target);
+    await supabase.from('orders').update({
+      progress,
+      last_session_value: current,
+      ...(done ? { status: 'completed', completed_at: new Date().toISOString() } : {})
+    }).eq('id', o.id);
+    if (remaining <= 0) break;
+  }
+  console.log(`Order progress updated (+${current - (last ?? current)})`);
 }
 
 client.once('clientReady', () => console.log(`Discord reader ready as ${client.user.tag}`));
