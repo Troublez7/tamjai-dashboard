@@ -1,238 +1,109 @@
 'use client';
 import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
+// @ts-ignore
+import generatePayload from 'promptpay-qr';
 import type { User } from '@supabase/supabase-js';
-import { supabaseBrowser } from '../lib/supabase';
+import { supabaseBrowser } from '../../lib/supabase';
 
-type Report = {
-  id: string;
-  result: string;
-  map_name: string | null;
-  mode: string | null;
-  completion_time: string | null;
-  session_time: string | null;
-  wins_losses: string | null;
-  screenshot_url: string | null;
-  raw_text: string;
-  created_at: string;
-  worker_id: string;
-};
-
-type Order = {
-  id: string;
-  metric: string;
-  target: number;
-  progress: number;
-  status: string;
-  created_at: string;
-};
+type Product = { id: string; name: string; target: number; price_thb: number };
 
 const supabase = supabaseBrowser();
+const PROMPTPAY_ID = process.env.NEXT_PUBLIC_PROMPTPAY_ID ?? '';
 
-const RESULT_COLOR: Record<string, string> = {
-  victory: '#4ade80', // เขียว
-  defeat: '#f87171',  // แดง
-  paused: '#facc15'   // เหลือง
-};
+export default function Shop() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [picked, setPicked] = useState<Product | null>(null);
+  const [qr, setQr] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [done, setDone] = useState(false);
 
-function Cat() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
-      <path d="M10 28 L12 6 L28 16 Z" fill="#ffb3cc" stroke="#5a3a47" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M54 28 L52 6 L36 16 Z" fill="#ffb3cc" stroke="#5a3a47" strokeWidth="3" strokeLinejoin="round" />
-      <ellipse cx="32" cy="36" rx="24" ry="21" fill="#fff" stroke="#5a3a47" strokeWidth="3" />
-      <circle cx="23" cy="34" r="3" fill="#5a3a47" />
-      <circle cx="41" cy="34" r="3" fill="#5a3a47" />
-      <ellipse cx="18" cy="42" rx="4" ry="2.5" fill="#ffb3cc" />
-      <ellipse cx="46" cy="42" rx="4" ry="2.5" fill="#ffb3cc" />
-      <path d="M29 41 Q32 45 35 41" fill="none" stroke="#5a3a47" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M30 38 L34 38 L32 40 Z" fill="#ff5c93" />
-    </svg>
-  );
-}
-
-type Group = { main: Report; rewards: Report[] };
-
-function groupReports(list: Report[]): Group[] {
-  // list เรียงใหม่ → เก่า; ประมวลผลจากเก่า → ใหม่ เพื่อผูก rewards เข้ากับแมตช์ก่อนหน้า
-  const asc = [...list].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
-  const groups: Group[] = [];
-  const WINDOW_MS = 2 * 60 * 1000;
-
-  for (const r of asc) {
-    if (r.result === 'rewards') {
-      const last = [...groups].reverse().find(
-        g => g.main.worker_id === r.worker_id &&
-             (g.main.result === 'victory' || g.main.result === 'defeat') &&
-             +new Date(r.created_at) - +new Date(g.main.created_at) <= WINDOW_MS &&
-             +new Date(r.created_at) >= +new Date(g.main.created_at)
-      );
-      if (last) { last.rewards.push(r); continue; }
-    }
-    groups.push({ main: r, rewards: [] });
-  }
-  return groups.reverse(); // ใหม่ → เก่า
-}
-function mergeOrders(list: Order[]) {
-  // นับเฉพาะออเดอร์ที่ชำระแล้ว (active / completed) รวมเป็นหลอดเดียว
-  const paid = list.filter(o => o.status === 'active' || o.status === 'completed');
-  if (paid.length === 0) return null;
-  const target = paid.reduce((s, o) => s + Number(o.target), 0);
-  const progress = paid.reduce((s, o) => s + Number(o.progress), 0);
-  const done = paid.every(o => o.status === 'completed');
-  return { target, progress, done, count: paid.length };
-}
-
-export default function Home() {
-  const [user,setUser] = useState<User|null>(null);
-  const [email,setEmail] = useState('');
-  const [password,setPassword] = useState('');
-  const [reports,setReports] = useState<Report[]>([]);
-  const [orders,setOrders] = useState<Order[]>([]);
-  const [notice,setNotice] = useState('');
-  const [loading,setLoading] = useState(true);
-
-  async function loadReports() {
-    const { data, error } = await supabase
-      .from('match_reports')
-      .select('id,result,map_name,mode,completion_time,session_time,wins_losses,screenshot_url,raw_text,created_at,worker_id')
-      .order('created_at',{ascending:false})
-      .limit(50);
-    if (error) setNotice(error.message); else setReports((data ?? []) as Report[]);
-
-    const { data: o } = await supabase
-      .from('orders')
-      .select('id,metric,target,progress,status,created_at')
-      .order('created_at',{ascending:false});
-    setOrders((o ?? []) as Order[]);
-  }
   useEffect(() => {
-    supabase.auth.getUser().then(({data}) => { setUser(data.user); setLoading(false); if(data.user) loadReports(); });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event,session) => {
-      setUser(session?.user ?? null);
-      if(session?.user) loadReports(); else { setReports([]); setOrders([]); }
-    });
-    return () => subscription.unsubscribe();
-  },[]);
-  async function signIn(e:React.FormEvent) { e.preventDefault(); setNotice(''); const {error} = await supabase.auth.signInWithPassword({email,password}); setNotice(error?.message ?? 'เข้าสู่ระบบสำเร็จ'); }
-  async function signUp(e:React.FormEvent) { e.preventDefault(); setNotice(''); const {error} = await supabase.auth.signUp({email,password}); setNotice(error?.message ?? 'สมัครสำเร็จ โปรดตรวจสอบอีเมล'); }
-  async function signOut() { await supabase.auth.signOut(); }
+    supabase.auth.getUser().then(({ data }) => { setUser(data.user); setLoading(false); });
+    supabase.from('products').select('id,name,target,price_thb').eq('active', true).order('price_thb')
+      .then(({ data }) => setProducts((data ?? []) as Product[]));
+  }, []);
+
+  // แค่แสดง QR ไม่สร้างออเดอร์
+  async function pick(p: Product) {
+    setNotice(''); setFile(null); setPicked(p);
+    if (PROMPTPAY_ID) {
+      const payload = generatePayload(PROMPTPAY_ID, { amount: Number(p.price_thb) });
+      setQr(await QRCode.toDataURL(payload, { width: 300, margin: 1 }));
+    }
+  }
+
+  function back() { setPicked(null); setQr(''); setFile(null); setNotice(''); }
+
+  async function sendSlip() {
+    if (!file || !picked || !user) return;
+    setBusy(true); setNotice('');
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    const up = await supabase.storage.from('slips').upload(path, file);
+    if (up.error) { setNotice(up.error.message); setBusy(false); return; }
+    const { error } = await supabase.rpc('submit_order', { p_product_id: picked.id, p_slip_path: path });
+    if (error) setNotice(error.message); else setDone(true);
+    setBusy(false);
+  }
 
   if (loading) return <main className="wrap">กำลังโหลด...</main>;
-  if (!user) return <main className="wrap auth"><div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div><h1>เข้าสู่ระบบลูกค้า</h1><p>ดูสถานะงานและประวัติการฟาร์มของบัญชีที่ผูกไว้</p><form onSubmit={signIn}><input type="email" placeholder="อีเมล" value={email} onChange={e=>setEmail(e.target.value)} required/><input type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6}/><button>เข้าสู่ระบบ</button><button type="button" className="secondary" onClick={signUp}>สมัครสมาชิก</button></form>{notice && <p className="notice">{notice}</p>}</main>;
-
-  const matchCount = reports.filter(r => r.result === 'victory' || r.result === 'defeat').length;
-  const groups = groupReports(reports);
-  const merged = mergeOrders(orders);
-  const pendingCount = orders.filter(o => o.status === 'pending_payment' || o.status === 'pending_review').length;
+  if (!user) return (
+    <main className="wrap auth">
+      <h1>กรุณาเข้าสู่ระบบก่อนสั่งซื้อ</h1>
+      <a href="/"><button>ไปหน้าเข้าสู่ระบบ</button></a>
+    </main>
+  );
 
   return (
     <main className="wrap">
       <header>
         <div>
-          <div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div>
-          <p className="muted">ภาพรวมการฟาร์มของคุณ</p>
+          <div className="brand">TAMJAI<span> SHOP</span></div>
+          <p className="muted">เลือกแพ็กเกจที่ต้องการ</p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <a href="/shop"><button>ซื้อบริการ</button></a>
-          <button className="secondary" onClick={signOut}>ออกจากระบบ</button>
-        </div>
+        <a href="/"><button className="secondary">กลับ Dashboard</button></a>
       </header>
 
-      <section className="stats">
-        <article><small>บัญชี</small><strong>{user.email}</strong></article>
-        <article><small>แมตช์ล่าสุด (ชนะ/แพ้)</small><strong>{matchCount}</strong></article>
-        <article><small>สถานะ</small><strong className="green">CONNECTED</strong></article>
-      </section>
-
-      {(merged || pendingCount > 0) && (
-  <>
-    <h2>งานของคุณ</h2>
-    {merged && (() => {
-      const pct = Math.min(100, Math.floor((merged.progress / merged.target) * 100));
-      return (
-        <article className="report" style={{ marginBottom: 14 }}>
-          <div className="reporttop">
-            <strong>Summer Pearls {merged.target.toLocaleString()}</strong>
-            <span className="pill">{merged.done ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}</span>
-          </div>
-          <div className={`bar ${pct >= 100 ? 'bar-done' : ''}`}>
-            <div className="bar-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
-          </div>
-          <small>
-            {merged.progress.toLocaleString()} / {merged.target.toLocaleString()} · <span className="pct">{pct}%</span>
-            {merged.count > 1 ? ` · รวม ${merged.count} ออเดอร์` : ''}
-          </small>
-        </article>
-      );
-    })()}
-    {pendingCount > 0 && (
-      <p className="muted">มี {pendingCount} ออเดอร์รอตรวจสอบการชำระเงิน หลอดจะเริ่มเมื่อยืนยันแล้ว</p>
-    )}
-  </>
-)}
-
-      <h2>Match History</h2>
       {notice && <p className="notice">{notice}</p>}
 
-      {reports.length === 0 ? (
-        <div className="empty">ยังไม่มีรายงานที่ผูกกับบัญชีนี้</div>
+      {done ? (
+        <div className="report">
+          <h2>ส่งสลิปเรียบร้อย 🎉</h2>
+          <p>ทีมงานกำลังตรวจสอบการชำระเงิน เมื่อยืนยันแล้วหลอดความคืบหน้าจะขึ้นที่หน้า Dashboard</p>
+          <a href="/"><button>ไปหน้า Dashboard</button></a>
+        </div>
+      ) : picked ? (
+        <div className="report" style={{ maxWidth: 460 }}>
+          <h2 style={{ marginTop: 0 }}>ชำระเงิน</h2>
+          <p><strong>{picked.name}</strong> · {Number(picked.price_thb).toLocaleString()} บาท</p>
+          {qr ? (
+            <img src={qr} alt="PromptPay QR" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '8px auto', borderRadius: 12 }} />
+          ) : (
+            <p className="notice">ยังไม่ได้ตั้ง NEXT_PUBLIC_PROMPTPAY_ID</p>
+          )}
+          <p style={{ textAlign: 'center' }}>สแกนจ่ายตามยอดด้านบน แล้วแนบสลิปเพื่อยืนยัน</p>
+          <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          <button disabled={!file || busy} onClick={sendSlip}>{busy ? 'กำลังส่ง...' : 'ส่งสลิป'}</button>
+          <button className="secondary" disabled={busy} onClick={back}>ย้อนกลับ</button>
+        </div>
       ) : (
-        <div className="reports" style={{ display: 'grid', gap: 16 }}>
-          {groups.map(({ main: r, rewards }) => {
-            const shots = [r, ...rewards].filter(x => x.screenshot_url);
-            const dotColor = RESULT_COLOR[r.result] ?? '#94a3b8';
-            return (
-              <article className="report" key={r.id}>
-                <div className="reporttop">
-                  <strong>{r.map_name ?? 'Unknown Map'}</strong>
-                  <span
-                    title={r.result.toUpperCase()}
-                    style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: '50%',
-                      background: dotColor,
-                      boxShadow: `0 0 8px ${dotColor}`,
-                      display: 'inline-block',
-                      flexShrink: 0
-                    }}
-                  />
-                </div>
-                <p>
-                  {r.mode ?? 'Mode not detected'}
-                  {' · '}
-                  {r.completion_time
-                    ? `Total ${r.completion_time}`
-                    : r.session_time
-                      ? `Session ${r.session_time}`
-                      : 'Time unavailable'}
-                  {r.wins_losses ? ` · W/L ${r.wins_losses}` : ''}
-                  {rewards.length > 0 ? ` · รางวัล ${rewards.length}` : ''}
-                </p>
-                <small>{new Date(r.created_at).toLocaleString('th-TH')}</small>
-
-                {shots.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                    {shots.map(s => (
-                      <a key={s.id} href={s.screenshot_url!} target="_blank" rel="noreferrer">
-                        <img
-                          src={s.screenshot_url!}
-                          alt={s.result}
-                          loading="lazy"
-                          style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 8, display: 'block' }}
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
-
-                <details>
-                  <summary>ดูข้อมูลรายงาน</summary>
-                  <pre>{[r, ...rewards].map(x => x.raw_text).join('\n\n---\n\n')}</pre>
-                </details>
-              </article>
-            );
-          })}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {products.map(p => (
+            <article className="report" key={p.id}>
+              <strong style={{ fontSize: 20 }}>{p.name}</strong>
+              <p>เป้าหมาย {Number(p.target).toLocaleString()}</p>
+              <p style={{ fontSize: 28, fontWeight: 700, color: 'var(--pink-deep)', margin: '6px 0 12px' }}>
+                {Number(p.price_thb).toLocaleString()} ฿
+              </p>
+              <button onClick={() => pick(p)}>สั่งซื้อ</button>
+            </article>
+          ))}
+          {products.length === 0 && <div className="empty">ยังไม่มีสินค้า</div>}
         </div>
       )}
     </main>
