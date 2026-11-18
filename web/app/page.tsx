@@ -202,4 +202,21 @@ export default function Home() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
                     {shots.map(s => (
                       <a key={s.id} href={s.screenshot_url!} target="_blank" rel="noreferrer">
-                        <img src={s.screenshot_url!} alt={s.result} loading="lazy" style={{
+                        <img src={s.screenshot_url!} alt={s.result} loading="lazy" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                <details>
+                  <summary>ดูข้อมูลรายงาน</summary>
+                  <pre>{[r, ...rewards].map(x => x.raw_text).join('\n\n---\n\n')}</pre>
+                </details>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  );
+}
