@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {"start": "node index.js"},
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
+    "@discordjs/rest": "^2.6.3",
     "@supabase/supabase-js": "^2.57.0",
+    "discord-api-types": "^0.38.59",
     "discord.js": "^14.22.1",
     "dotenv": "^16.6.1",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "stripe": "^23.2.0"
   }
 }
