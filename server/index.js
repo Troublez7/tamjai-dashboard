@@ -180,7 +180,18 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
           if (updated?.length) {
             console.log(`💰 Paid: ${order.order_code}`);
             const ch = await client.channels.fetch(order.channel_id).catch(() => null);
-            if (ch) {
+                        if (ch) {
+              // เอารูป QR เดิมออก เหลือข้อความยอดไว้
+              const recent = await ch.messages.fetch({ limit: 20 }).catch(() => null);
+              const qrMsg = recent?.find(m =>
+                m.author.id === client.user.id &&
+                m.attachments.some(a => a.name === `${order.order_code}.png`)
+              );
+              if (qrMsg) {
+                await qrMsg.edit({ content: `${qrMsg.content}\n✅ ชำระแล้ว`, attachments: [] })
+                  .catch(e => console.error('QR cleanup failed:', e.message));
+              }
+
               const panel = createControlPanel(order.order_code, order.package_name, order.target);
               await ch.send({
                 content: `✅ รับชำระแล้ว ${pkg.price} บาท เริ่มงานได้เลย`,
