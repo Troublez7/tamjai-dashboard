@@ -199,7 +199,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: url('/tamjai-night.png') center center / cover no-repeat;
+  background: url('/tamjai-night.webp') center center / cover no-repeat;
   filter: grayscale(1) brightness(var(--scene-light));
 }
 
@@ -281,3 +281,58 @@
 .page :is(button, a, summary):focus-visible {
   outline-color: #c5c5c5;
 }
+
+/* ชั้นแสงอยู่เหนือภาพเมือง แต่ใต้เนื้อหา Dashboard */
+.starfall {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.page .wrap {
+  position: relative;
+  z-index: 1;
+}
+
+/* สีขาวชัดที่ปลายล่าง หางด้านบนค่อย ๆ จาง */
+.starfall > i {
+  position: absolute;
+  top: -100px;
+  left: var(--x);
+  display: block;
+  width: var(--width, 2px);
+  height: var(--length, 74px);
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgb(255 255 255 / 18%) 35%,
+    rgb(255 255 255 / 70%) 85%,
+    #fff 100%
+  );
+  filter: drop-shadow(0 0 3px rgb(255 255 255 / 35%));
+  animation: dashboard-light-fall var(--speed, 12s) linear infinite;
+  animation-delay: var(--delay);
+}
+
+/* ใช้เวลาติดลบเพื่อให้มีแสงกระจายทั่วจอตั้งแต่เปิดหน้า */
+.starfall > i:nth-child(1) { --x:  4%; --speed: 12s; --delay:  -2s; --length: 66px; }
+.starfall > i:nth-child(2) { --x: 17%; --speed: 15s; --delay: -10s; --length: 88px; }
+.starfall > i:nth-child(3) { --x: 30%; --speed: 11s; --delay:  -4s; --length: 54px; }
+.starfall > i:nth-child(4) { --x: 43%; --speed: 14s; --delay: -12s; --length: 78px; }
+.starfall > i:nth-child(5) { --x: 57%; --speed: 13s; --delay:  -6s; --length: 62px; }
+.starfall > i:nth-child(6) { --x: 70%; --speed: 16s; --delay:  -1s; --length: 92px; }
+.starfall > i:nth-child(7) { --x: 83%; --speed: 12s; --delay:  -9s; --length: 58px; }
+.starfall > i:nth-child(8) { --x: 96%; --speed: 14s; --delay:  -5s; --length: 80px; }
+
+@keyframes dashboard-light-fall {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(100vh + 110px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starfall { display: none; }
+}
+

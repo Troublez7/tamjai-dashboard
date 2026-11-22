@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabaseBrowser } from '../lib/supabase';
 import styles from './dashboard.module.css';
@@ -124,6 +124,28 @@ function groupReports(reports: Report[]): Group[] {
   }
 
   return groups.reverse();
+}
+function Starfall() {
+  const [stars, setStars] = useState<CSSProperties[]>([]);
+
+  useEffect(() => {
+    setStars(Array.from({ length: 8 }, (_, i) => {
+      const size = Math.random();
+      const speed = 11 + Math.random() * 6;
+
+      return {
+        '--x': `${(i + 0.15 + Math.random() * 0.7) * 12.5}%`,
+        '--width': `${(1 + size * 1.5).toFixed(1)}px`,
+        '--length': `${Math.round(32 + size * 64)}px`,
+        '--speed': `${speed}s`,
+        '--delay': `${-((i + Math.random()) / 8) * speed}s`,
+      } as CSSProperties;
+    }));
+  }, []);
+
+  return (
+    <Starfall />
+  );
 }
 
 export default function Home() {
