@@ -1,0 +1,182 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: clamp(18px, 4vw, 48px);
+  color: #222;
+  background-color: #fafafa;
+  background-image: radial-gradient(#dfdfdf 0.8px, transparent 0.8px);
+  background-size: 15px 15px;
+  font-family: inherit;
+  color-scheme: light;
+}
+
+.page *, .page *::before, .page *::after { box-sizing: border-box; }
+.wrap { width: min(100%, 1120px); margin: 0 auto; }
+
+.page .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.brand, .actions, .profile, .row {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 10px;
+  color: #171717;
+  font-size: clamp(18px, 3.4vw, 30px);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+
+.brand b { color: #595959; }
+.heart { display: block; width: 42px; height: 42px; flex: none; overflow: visible; }
+
+.heartLight {
+  filter: drop-shadow(0 0 1.5px white);
+  animation: heart-orbit 6s linear infinite;
+}
+
+@keyframes heart-orbit {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -100; }
+}
+
+.page .muted, .page small { color: #585858; }
+.header p { margin: 6px 0 0; }
+.actions { margin-left: auto; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+
+.page .primary, .page .secondary, .profile {
+  border: 1.5px solid #262626;
+  border-radius: 999px;
+  background: white;
+  color: #222;
+  box-shadow: 0 2px 0 #262626;
+}
+
+.page .primary, .page .secondary {
+  min-height: 42px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page .primary { color: white; background: #262626; }
+.page .secondary:hover { background: #eee; }
+.page .primary:hover { background: #414141; }
+.page :is(button, a, summary):focus-visible { outline: 3px dashed #444; outline-offset: 4px; }
+
+.profile { gap: 9px; padding: 3px 4px 3px 14px; }
+.profile strong {
+  max-width: min(32vw, 190px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #f1f1f1;
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar .heart { width: 28px; height: 28px; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.list { display: grid; gap: 16px; }
+
+.page .card {
+  min-width: 0;
+  padding: clamp(15px, 2vw, 23px);
+  background: white;
+  border: 1.5px solid #303030;
+  border-radius: 21px;
+  box-shadow: 2px 3px 0 #d4d4d4;
+  color: #222;
+}
+
+.stats small, .stats strong { display: block; }
+.stats strong { margin-top: 5px; }
+.page h1, .page h2 { color: #202020; letter-spacing: -0.025em; }
+.page h2 { margin: 28px 0 12px; font-size: 1.3rem; }
+.row { justify-content: space-between; gap: 10px; }
+.row > strong { min-width: 0; overflow-wrap: anywhere; }
+
+.badge {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid #333;
+  border-radius: 999px;
+  color: #222;
+  background: #f4f4f4;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badge[data-result='victory'] { color: white; background: #242424; }
+.badge[data-result='defeat'] { border-style: dashed; background: white; }
+
+.track {
+  height: 12px;
+  margin: 14px 0 7px;
+  overflow: hidden;
+  border: 1px solid #333;
+  border-radius: 999px;
+  background: #eee;
+}
+.track > div { height: 100%; background: #303030; border-radius: inherit; }
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(4px, 1vw, 10px);
+  margin: 14px 0;
+}
+
+.gallery a {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background: #f1f1f1;
+}
+
+.gallery img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.gallery a:hover { border-color: #161616; }
+
+.details { margin-top: 14px; border-top: 1px dashed #ccc; padding-top: 10px; }
+.details summary { cursor: pointer; font-weight: 700; color: #444; }
+.details pre { white-space: pre-wrap; overflow-wrap: anywhere; color: #333; background: #f6f6f6; padding: 12px; border-radius: 12px; }
+
+.page .login { max-width: 440px; margin: 10vh auto 0; text-align: center; }
+.login .brand { justify-content: center; }
+.login h1 { margin: 22px 0 8px; }
+.login .primary { margin-top: 8px; }
+
+@media (max-width: 480px) {
+  .page { padding: 15px 12px 32px; }
+  .stats { gap: 8px; }
+  .stats .card { padding: 12px; }
+  .gallery a { border-radius: 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartLight { animation: none; }
+}
