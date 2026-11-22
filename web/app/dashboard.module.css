@@ -329,3 +329,33 @@
   to   { transform: translateY(calc(100vh + 110px)); }
 }
 .page .login { position: relative; z-index: 1; }
+
+/* ปุ่มทุกปุ่ม: แตะแล้วมีแสงขาวสว่างออกจากกรอบ แล้วค่อย ๆ จางหาย */
+.page .primary,
+.page .secondary,
+.discordBtn {
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.55s ease-out, border-color 0.55s ease-out, background 0.2s ease;
+}
+
+.page .primary:active,
+.page .secondary:active,
+.discordBtn:active {
+  border-color: #fff;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 90%),
+    0 0 14px 3px rgb(255 255 255 / 70%),
+    0 0 32px 8px rgb(255 255 255 / 35%);
+  transition-duration: 0.08s; /* สว่างเร็ว จางช้า */
+}
+
+/* เมาส์บนคอม: แสงอ่อนตอนชี้ (ไม่มีผลบนจอสัมผัส) */
+@media (hover: hover) {
+  .page .primary:hover,
+  .page .secondary:hover,
+  .discordBtn:hover {
+    box-shadow: 0 0 10px 2px rgb(255 255 255 / 40%);
+  }
+}
+
+.discordBtn { will-change: transform; }
