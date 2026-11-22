@@ -31,8 +31,8 @@ type Order = {
 type Group = { main: Report; rewards: Report[] };
 
 const supabase = supabaseBrowser();
-// ใส่ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/abc123
-const DISCORD_INVITE = 'https://discord.gg/abc123';
+// ใส่ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/
+const DISCORD_INVITE = 'https://discord.gg/dsdssdsddsdsdsdsdssdsddsdsds';
 
 const resultLabels: Record<string, string> = {
   victory: 'ชนะ',
