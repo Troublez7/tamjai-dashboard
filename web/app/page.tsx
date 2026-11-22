@@ -31,6 +31,7 @@ type Order = {
 type Group = { main: Report; rewards: Report[] };
 
 const supabase = supabaseBrowser();
+const DISCORD_INVITE = 'https://discord.gg/ใส่ลิงก์ของคุณ';
 
 const resultLabels: Record<string, string> = {
   victory: 'ชนะ',
@@ -144,8 +145,10 @@ function Starfall() {
   }, []);
 
   return (
-    <Starfall />
-  );
+  <div className={styles.starfall} aria-hidden="true">
+    {stars.map((style, i) => <span key={i} className={styles.star} style={style} />)}
+  </div>
+);
 }
 
 export default function Home() {
@@ -249,9 +252,17 @@ export default function Home() {
             <p className={styles.muted}>ภาพรวมการฟาร์มของคุณ</p>
           </div>
           <div className={styles.actions}>
-            <button className={styles.secondary} type="button" onClick={signOut}>ออกจากระบบ</button>
-            <DiscordProfile key={user.id} user={user} />
-          </div>
+  <button
+    className={styles.primary}
+    type="button"
+    style={{ width: 'auto' }}
+    onClick={() => window.open(DISCORD_INVITE, '_blank', 'noopener,noreferrer')}
+  >
+    💬 เข้า Discord ร้าน
+  </button>
+  <button className={styles.secondary} type="button" onClick={signOut}>ออกจากระบบ</button>
+  <DiscordProfile key={user.id} user={user} />
+</div>
         </header>
 
         {(notice || current?.error) && <p role="alert" className={styles.card}>{notice || current?.error}</p>}
