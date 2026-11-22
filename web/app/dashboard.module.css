@@ -177,9 +177,6 @@
   .gallery a { border-radius: 5px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .heartLight { animation: none; }
-}
 /* ธีมกลางคืน — วางท้าย dashboard.module.css */
 .page {
   --scene-light: 0.28;
@@ -331,8 +328,4 @@
   from { transform: translateY(0); }
   to   { transform: translateY(calc(100vh + 110px)); }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .starfall { display: none; }
-}
-
+.page .login { position: relative; z-index: 1; }

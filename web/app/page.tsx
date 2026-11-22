@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabaseBrowser } from '../lib/supabase';
 import styles from './dashboard.module.css';
@@ -31,7 +31,8 @@ type Order = {
 type Group = { main: Report; rewards: Report[] };
 
 const supabase = supabaseBrowser();
-const DISCORD_INVITE = 'https://discord.gg/ใส่ลิงก์ของคุณ';
+// ใส่ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/abc123
+const DISCORD_INVITE = 'https://discord.gg/XXXXXXX';
 
 const resultLabels: Record<string, string> = {
   victory: 'ชนะ',
@@ -61,6 +62,32 @@ function Heart() {
       <circle cx="30" cy="22" r="1.5" fill="white" />
       <path d="M21 26 Q24 29 27 26" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function DiscordButton({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="เข้า Discord ร้าน"
+      title="เข้า Discord ร้าน"
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        flexShrink: 0,
+        background: '#ffffff',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#5865F2" aria-hidden="true">
+        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+      </svg>
+    </a>
   );
 }
 
@@ -126,29 +153,13 @@ function groupReports(reports: Report[]): Group[] {
 
   return groups.reverse();
 }
+
 function Starfall() {
-  const [stars, setStars] = useState<CSSProperties[]>([]);
-
-  useEffect(() => {
-    setStars(Array.from({ length: 8 }, (_, i) => {
-      const size = Math.random();
-      const speed = 11 + Math.random() * 6;
-
-      return {
-        '--x': `${(i + 0.15 + Math.random() * 0.7) * 12.5}%`,
-        '--width': `${(1 + size * 1.5).toFixed(1)}px`,
-        '--length': `${Math.round(32 + size * 64)}px`,
-        '--speed': `${speed}s`,
-        '--delay': `${-((i + Math.random()) / 8) * speed}s`,
-      } as CSSProperties;
-    }));
-  }, []);
-
   return (
-  <div className={styles.starfall} aria-hidden="true">
-    {stars.map((style, i) => <span key={i} className={styles.star} style={style} />)}
-  </div>
-);
+    <div className={styles.starfall} aria-hidden="true">
+      {Array.from({ length: 8 }, (_, i) => <i key={i} />)}
+    </div>
+  );
 }
 
 export default function Home() {
@@ -222,6 +233,7 @@ export default function Home() {
 
   if (!user) return (
     <main className={styles.page}>
+  <Starfall />
       <section className={`${styles.card} ${styles.login}`}>
         <Brand />
         <h1>เข้าสู่ระบบลูกค้า</h1>
@@ -252,17 +264,10 @@ export default function Home() {
             <p className={styles.muted}>ภาพรวมการฟาร์มของคุณ</p>
           </div>
           <div className={styles.actions}>
-  <button
-    className={styles.primary}
-    type="button"
-    style={{ width: 'auto' }}
-    onClick={() => window.open(DISCORD_INVITE, '_blank', 'noopener,noreferrer')}
-  >
-    💬 เข้า Discord ร้าน
-  </button>
-  <button className={styles.secondary} type="button" onClick={signOut}>ออกจากระบบ</button>
-  <DiscordProfile key={user.id} user={user} />
-</div>
+            <button className={styles.secondary} type="button" onClick={signOut}>ออกจากระบบ</button>
+            <DiscordProfile key={user.id} user={user} />
+            <DiscordButton href={DISCORD_INVITE} />
+          </div>
         </header>
 
         {(notice || current?.error) && <p role="alert" className={styles.card}>{notice || current?.error}</p>}
