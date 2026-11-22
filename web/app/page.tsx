@@ -32,7 +32,7 @@ type Group = { main: Report; rewards: Report[] };
 
 const supabase = supabaseBrowser();
 // ใส่ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/abc123
-const DISCORD_INVITE = 'https://discord.gg/xxx';
+const DISCORD_INVITE = 'https://discord.gg/abc123';
 
 const resultLabels: Record<string, string> = {
   victory: 'ชนะ',
