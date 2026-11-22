@@ -112,12 +112,26 @@ export default function Home() {
     });
     return () => subscription.unsubscribe();
   },[]);
-  async function signIn(e:React.FormEvent) { e.preventDefault(); setNotice(''); const {error} = await supabase.auth.signInWithPassword({email,password}); setNotice(error?.message ?? 'เข้าสู่ระบบสำเร็จ'); }
-  async function signUp(e:React.FormEvent) { e.preventDefault(); setNotice(''); const {error} = await supabase.auth.signUp({email,password}); setNotice(error?.message ?? 'สมัครสำเร็จ โปรดตรวจสอบอีเมล'); }
+  async function signInDiscord() {
+  setNotice('');
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'discord',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) setNotice(error.message);
+}
   async function signOut() { await supabase.auth.signOut(); }
 
   if (loading) return <main className="wrap">กำลังโหลด...</main>;
-  if (!user) return <main className="wrap auth"><div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div><h1>เข้าสู่ระบบลูกค้า</h1><p>ดูสถานะงานและประวัติการฟาร์มของบัญชีที่ผูกไว้</p><form onSubmit={signIn}><input type="email" placeholder="อีเมล" value={email} onChange={e=>setEmail(e.target.value)} required/><input type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6}/><button>เข้าสู่ระบบ</button><button type="button" className="secondary" onClick={signUp}>สมัครสมาชิก</button></form>{notice && <p className="notice">{notice}</p>}</main>;
+  if (!user) return (
+  <main className="wrap auth">
+    <div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div>
+    <h1>เข้าสู่ระบบลูกค้า</h1>
+    <p>ล็อกอินด้วย Discord เพื่อดูงานและความคืบหน้าของออเดอร์</p>
+    <button onClick={signInDiscord}>เข้าสู่ระบบด้วย Discord</button>
+    {notice && <p className="notice">{notice}</p>}
+  </main>
+);
 
   const matchCount = reports.filter(r => r.result === 'victory' || r.result === 'defeat').length;
   const groups = groupReports(reports);
