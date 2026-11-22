@@ -180,3 +180,104 @@
 @media (prefers-reduced-motion: reduce) {
   .heartLight { animation: none; }
 }
+/* ธีมกลางคืน — วางท้าย dashboard.module.css */
+.page {
+  --scene-light: 0.28;
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #090909;
+  color: #dedede;
+  color-scheme: dark;
+}
+
+/* แยกพื้นหลังออกจากเนื้อหา รูปโปรไฟล์และภาพเกมจึงไม่โดนฟิลเตอร์ */
+.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: url('/tamjai-night.png') center center / cover no-repeat;
+  filter: grayscale(1) brightness(var(--scene-light));
+}
+
+.page .brand,
+.page h1,
+.page h2 {
+  color: #e2e2e2;
+}
+
+.page .brand b { color: #b8b8b8; }
+
+.page .muted,
+.page small,
+.page .details summary {
+  color: #b9b9b9;
+}
+
+.page .card {
+  color: #dedede;
+  background: rgb(20 20 20 / 94%);
+  border-color: #484848;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 35%);
+}
+
+.page .profile,
+.page .primary,
+.page .secondary {
+  color: #dedede;
+  background: #242424;
+  border-color: #595959;
+  box-shadow: 0 2px 0 #080808;
+}
+
+.page .primary:hover,
+.page .secondary:hover { background: #353535; }
+
+.page .avatar,
+.page .gallery a {
+  background: #181818;
+  border-color: #454545;
+}
+
+.page .gallery a:hover { border-color: #aaa; }
+
+.page .badge {
+  color: #d6d6d6;
+  background: #242424;
+  border-color: #626262;
+}
+
+.page .badge[data-result='victory'] {
+  color: #ebebeb;
+  background: #383838;
+  border-color: #858585;
+}
+
+.page .badge[data-result='defeat'] {
+  color: #c4c4c4;
+  background: #191919;
+  border-style: dashed;
+}
+
+.page .track {
+  background: #101010;
+  border-color: #505050;
+}
+
+.page .track > div { background: #aaa; }
+.page .details { border-color: #444; }
+
+.page .details pre {
+  color: #cecece;
+  background: #101010;
+}
+
+/* ให้เห็นทรงหัวใจบนพื้นดำ โดยไม่ต้องเพิ่มความสว่างของแสงวิ่ง */
+.page .heart > path:first-child { stroke: #737373; }
+
+.page :is(button, a, summary):focus-visible {
+  outline-color: #c5c5c5;
+}
