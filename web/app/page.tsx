@@ -121,7 +121,13 @@ export default function Home() {
   if (error) setNotice(error.message);
 }
   async function signOut() { await supabase.auth.signOut(); }
-
+  async function linkDiscord() {
+  const { error } = await supabase.auth.linkIdentity({
+    provider: 'discord',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) setNotice(error.message);
+}
   if (loading) return <main className="wrap">กำลังโหลด...</main>;
   if (!user) return (
   <main className="wrap auth">
