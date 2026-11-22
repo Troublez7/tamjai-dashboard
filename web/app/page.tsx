@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabaseBrowser } from '../lib/supabase';
@@ -26,12 +27,14 @@ type Order = {
   created_at: string;
 };
 
+type Group = { main: Report; rewards: Report[] };
+
 const supabase = supabaseBrowser();
 
 const RESULT_COLOR: Record<string, string> = {
   victory: '#4ade80',
   defeat: '#f87171',
-  paused: '#facc15'
+  paused: '#facc15',
 };
 
 function Cat() {
@@ -50,115 +53,231 @@ function Cat() {
   );
 }
 
-type Group = { main: Report; rewards: Report[] };
+function DiscordProfile({ user }: { user: User }) {
+  const identity = user.identities?.find(item => item.provider === 'discord');
+  const profile = {
+    ...(user.app_metadata?.provider === 'discord' ? user.user_metadata : {}),
+    ...identity?.identity_data,
+  };
+
+  const name = [
+    profile.global_name,
+    profile.full_name,
+    profile.preferred_username,
+    profile.user_name,
+    profile.username,
+    profile.name,
+  ].find((value): value is string =>
+    typeof value === 'string' && value.trim().length > 0 && value !== user.email
+  ) ?? 'ผู้ใช้ Discord';
+
+  const avatar = [profile.avatar_url, profile.picture].find(
+    (value): value is string => typeof value === 'string' && value.startsWith('https://')
+  );
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
+
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '5px 7px 5px 15px',
+      border: '2px solid #ffcddd',
+      borderRadius: 999,
+      background: '#fff',
+      color: '#5a3a47',
+    }}>
+      <strong title={name} style={{
+        maxWidth: 'min(36vw, 200px)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {name}
+      </strong>
+
+      <span style={{
+        width: 40,
+        height: 40,
+        flexShrink: 0,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        display: 'grid',
+        placeItems: 'center',
+        background: '#fff0f5',
+      }}>
+        {avatar && avatar !== failedAvatar ? (
+          <img
+            src={avatar}
+            alt={`รูปโปรไฟล์ Discord ของ ${name}`}
+            width={40}
+            height={40}
+            onError={() => setFailedAvatar(avatar)}
+            style={{ display: 'block', objectFit: 'cover' }}
+          />
+        ) : <Cat />}
+      </span>
+    </div>
+  );
+}
 
 function groupReports(list: Report[]): Group[] {
-  const asc = [...list].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+  const asc = [...list].sort(
+    (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+  );
   const groups: Group[] = [];
-  const WINDOW_MS = 2 * 60 * 1000;
+  const windowMs = 2 * 60 * 1000;
 
-  for (const r of asc) {
-    if (r.result === 'rewards') {
-      const last = [...groups].reverse().find(
-        g => g.main.worker_id === r.worker_id &&
-             (g.main.result === 'victory' || g.main.result === 'defeat') &&
-             +new Date(r.created_at) - +new Date(g.main.created_at) <= WINDOW_MS &&
-             +new Date(r.created_at) >= +new Date(g.main.created_at)
-      );
-      if (last) { last.rewards.push(r); continue; }
+  for (const report of asc) {
+    if (report.result === 'rewards') {
+      const last = [...groups].reverse().find(({ main }) => {
+        const elapsed = Date.parse(report.created_at) - Date.parse(main.created_at);
+        return main.worker_id === report.worker_id &&
+          (main.result === 'victory' || main.result === 'defeat') &&
+          elapsed >= 0 && elapsed <= windowMs;
+      });
+
+      if (last) {
+        last.rewards.push(report);
+        continue;
+      }
     }
-    groups.push({ main: r, rewards: [] });
+
+    groups.push({ main: report, rewards: [] });
   }
+
   return groups.reverse();
 }
 
 function mergeOrders(list: Order[]) {
   const paid = list.filter(o => o.status === 'active' || o.status === 'completed');
-  if (paid.length === 0) return null;
-  const target = paid.reduce((s, o) => s + Number(o.target), 0);
-  const progress = paid.reduce((s, o) => s + Number(o.progress), 0);
-  const done = paid.every(o => o.status === 'completed');
-  return { target, progress, done, count: paid.length };
+  if (!paid.length) return null;
+
+  return {
+    target: paid.reduce((sum, o) => sum + Number(o.target), 0),
+    progress: paid.reduce((sum, o) => sum + Number(o.progress), 0),
+    done: paid.every(o => o.status === 'completed'),
+    count: paid.length,
+  };
 }
 
 export default function Home() {
-  const [user,setUser] = useState<User|null>(null);
-  const [email,setEmail] = useState('');
-  const [password,setPassword] = useState('');
-  const [reports,setReports] = useState<Report[]>([]);
-  const [orders,setOrders] = useState<Order[]>([]);
-  const [notice,setNotice] = useState('');
-  const [loading,setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [notice, setNotice] = useState('');
+  const [loading, setLoading] = useState(true);
+  const userId = user?.id;
 
-  async function loadReports() {
-    const { data, error } = await supabase
-      .from('match_reports')
-      .select('id,result,map_name,mode,completion_time,session_time,wins_losses,screenshot_url,raw_text,created_at,worker_id')
-      .order('created_at',{ascending:false})
-      .limit(50);
-    if (error) setNotice(error.message); else setReports((data ?? []) as Report[]);
-
-    const { data: o } = await supabase
-      .from('orders')
-      .select('id,metric,target,progress,status,created_at')
-      .order('created_at',{ascending:false});
-    setOrders((o ?? []) as Order[]);
-  }
   useEffect(() => {
-    supabase.auth.getUser().then(({data}) => { setUser(data.user); setLoading(false); if(data.user) loadReports(); });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event,session) => {
-      setUser(session?.user ?? null);
-      if(session?.user) loadReports(); else { setReports([]); setOrders([]); }
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
     return () => subscription.unsubscribe();
-  },[]);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReports([]);
+    setOrders([]);
+    setNotice('');
+
+    if (!userId) return;
+
+    async function loadDashboard() {
+      const [reportResult, orderResult] = await Promise.all([
+        supabase
+          .from('match_reports')
+          .select('id,result,map_name,mode,completion_time,session_time,wins_losses,screenshot_url,raw_text,created_at,worker_id')
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('orders')
+          .select('id,metric,target,progress,status,created_at')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (cancelled) return;
+      setReports((reportResult.data ?? []) as Report[]);
+      setOrders((orderResult.data ?? []) as Order[]);
+      setNotice(reportResult.error?.message ?? orderResult.error?.message ?? '');
+    }
+
+    void loadDashboard().catch(() => {
+      if (!cancelled) setNotice('โหลดข้อมูลไม่สำเร็จ กรุณาลองรีเฟรชหน้าเว็บ');
+    });
+
+    return () => { cancelled = true; };
+  }, [userId]);
+
   async function signInDiscord() {
-  setNotice('');
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'discord',
-    options: { redirectTo: window.location.origin }
-  });
-  if (error) setNotice(error.message);
-}
-  async function signOut() { await supabase.auth.signOut(); }
-  async function linkDiscord() {
-  const { error } = await supabase.auth.linkIdentity({
-    provider: 'discord',
-    options: { redirectTo: window.location.origin }
-  });
-  if (error) setNotice(error.message);
-}
+    setNotice('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) setNotice(error.message);
+  }
+
+  async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) setNotice(error.message);
+  }
+
   if (loading) return <main className="wrap">กำลังโหลด...</main>;
-  if (!user) return (
-  <main className="wrap auth">
-    <div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div>
-    <h1>เข้าสู่ระบบลูกค้า</h1>
-    <p>ล็อกอินด้วย Discord เพื่อดูงานและความคืบหน้าของออเดอร์</p>
-    <button onClick={signInDiscord}>เข้าสู่ระบบด้วย Discord</button>
-    {notice && <p className="notice">{notice}</p>}
-  </main>
-);
+
+  if (!user) {
+    return (
+      <main className="wrap auth">
+        <div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div>
+        <h1>เข้าสู่ระบบลูกค้า</h1>
+        <p>ล็อกอินด้วย Discord เพื่อดูงานและความคืบหน้าของออเดอร์</p>
+        <button type="button" onClick={signInDiscord}>เข้าสู่ระบบด้วย Discord</button>
+        {notice && <p className="notice">{notice}</p>}
+      </main>
+    );
+  }
 
   const matchCount = reports.filter(r => r.result === 'victory' || r.result === 'defeat').length;
   const groups = groupReports(reports);
   const merged = mergeOrders(orders);
-  const pendingCount = orders.filter(o => o.status === 'pending_payment' || o.status === 'pending_review').length;
+  const pct = merged && merged.target > 0
+    ? Math.max(0, Math.min(100, Math.floor((merged.progress / merged.target) * 100)))
+    : 0;
+  const pendingCount = orders.filter(
+    o => o.status === 'pending_payment' || o.status === 'pending_review'
+  ).length;
 
   return (
     <main className="wrap">
-      <header>
+      <header style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div className="brand"><Cat />TAMJAI<span> DASHBOARD</span></div>
           <p className="muted">ภาพรวมการฟาร์มของคุณ</p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <a href="/shop"><button>ซื้อบริการ</button></a>
-          <button className="secondary" onClick={signOut}>ออกจากระบบ</button>
+
+        <div style={{
+          marginLeft: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flexWrap: 'wrap',
+          gap: 10,
+        }}>
+          <button type="button" className="secondary" onClick={signOut}>
+            ออกจากระบบ
+          </button>
+          <DiscordProfile key={user.id} user={user} />
         </div>
       </header>
 
-      <section className="stats">
-        <article><small>บัญชี</small><strong>{user.email}</strong></article>
+      <section className="stats" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+      }}>
         <article><small>แมตช์ล่าสุด (ชนะ/แพ้)</small><strong>{matchCount}</strong></article>
         <article><small>สถานะ</small><strong className="green">CONNECTED</strong></article>
       </section>
@@ -166,26 +285,28 @@ export default function Home() {
       {(merged || pendingCount > 0) && (
         <>
           <h2>งานของคุณ</h2>
-          {merged && (() => {
-            const pct = Math.min(100, Math.floor((merged.progress / merged.target) * 100));
-            return (
-              <article className="report" style={{ marginBottom: 14 }}>
-                <div className="reporttop">
-                  <strong>Summer Pearls {merged.target.toLocaleString()}</strong>
-                  <span className="pill">{merged.done ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}</span>
-                </div>
-                <div className={`bar ${pct >= 100 ? 'bar-done' : ''}`}>
-                  <div className="bar-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
-                </div>
-                <small>
-                  {merged.progress.toLocaleString()} / {merged.target.toLocaleString()} · <span className="pct">{pct}%</span>
-                  {merged.count > 1 ? ` · รวม ${merged.count} ออเดอร์` : ''}
-                </small>
-              </article>
-            );
-          })()}
+
+          {merged && (
+            <article className="report" style={{ marginBottom: 14 }}>
+              <div className="reporttop">
+                <strong>Summer Pearls {merged.target.toLocaleString()}</strong>
+                <span className="pill">{merged.done ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}</span>
+              </div>
+              <div className={`bar ${pct >= 100 ? 'bar-done' : ''}`}>
+                <div className="bar-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
+              </div>
+              <small>
+                {merged.progress.toLocaleString()} / {merged.target.toLocaleString()}
+                {' · '}<span className="pct">{pct}%</span>
+                {merged.count > 1 && ` · รวม ${merged.count} ออเดอร์`}
+              </small>
+            </article>
+          )}
+
           {pendingCount > 0 && (
-            <p className="muted">มี {pendingCount} ออเดอร์รอตรวจสอบการชำระเงิน หลอดจะเริ่มเมื่อยืนยันแล้ว</p>
+            <p className="muted">
+              มี {pendingCount} ออเดอร์รอตรวจสอบการชำระเงิน หลอดจะเริ่มเมื่อยืนยันแล้ว
+            </p>
           )}
         </>
       )}
@@ -200,29 +321,58 @@ export default function Home() {
           {groups.map(({ main: r, rewards }) => {
             const shots = [r, ...rewards].filter(x => x.screenshot_url);
             const dotColor = RESULT_COLOR[r.result] ?? '#94a3b8';
+
             return (
               <article className="report" key={r.id}>
                 <div className="reporttop">
                   <strong>{r.map_name ?? 'Unknown Map'}</strong>
                   <span
                     title={r.result.toUpperCase()}
-                    style={{ width: 14, height: 14, borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}`, display: 'inline-block', flexShrink: 0 }}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: '50%',
+                      background: dotColor,
+                      boxShadow: `0 0 8px ${dotColor}`,
+                      display: 'inline-block',
+                      flexShrink: 0,
+                    }}
                   />
                 </div>
+
                 <p>
                   {r.mode ?? 'Mode not detected'}
                   {' · '}
-                  {r.completion_time ? `Total ${r.completion_time}` : r.session_time ? `Session ${r.session_time}` : 'Time unavailable'}
-                  {r.wins_losses ? ` · W/L ${r.wins_losses}` : ''}
-                  {rewards.length > 0 ? ` · รางวัล ${rewards.length}` : ''}
+                  {r.completion_time
+                    ? `Total ${r.completion_time}`
+                    : r.session_time ? `Session ${r.session_time}` : 'Time unavailable'}
+                  {r.wins_losses && ` · W/L ${r.wins_losses}`}
+                  {rewards.length > 0 && ` · รางวัล ${rewards.length}`}
                 </p>
+
                 <small>{new Date(r.created_at).toLocaleString('th-TH')}</small>
 
                 {shots.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 8,
+                    marginTop: 10,
+                  }}>
                     {shots.map(s => (
                       <a key={s.id} href={s.screenshot_url!} target="_blank" rel="noreferrer">
-                        <img src={s.screenshot_url!} alt={s.result} loading="lazy" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+                        <img
+                          src={s.screenshot_url!}
+                          alt={s.result}
+                          loading="lazy"
+                          style={{
+                            width: '100%',
+                            aspectRatio: '16 / 10',
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            display: 'block',
+                          }}
+                        />
                       </a>
                     ))}
                   </div>
