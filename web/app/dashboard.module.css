@@ -443,3 +443,59 @@
 @media (min-width: 1100px) {
   .gallery { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* ปุ่มกรองโหมด */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 28px 0 12px;
+}
+.page .sectionHead h2 { margin: 0; }
+
+.filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+.page .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #dedede;
+  background: #242424;
+  border: 1.5px solid #595959;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.55s ease-out, border-color 0.55s ease-out, background 0.2s ease;
+}
+.page .chip span { font-size: 0.78rem; opacity: 0.7; }
+.page .chip:hover { background: #353535; }
+.page .chip:active {
+  border-color: #fff;
+  box-shadow: 0 0 14px 3px rgb(255 255 255 / 70%);
+  transition-duration: 0.08s;
+}
+.page .chip[aria-pressed='true'] {
+  color: #111;
+  background: #e8e8e8;
+  border-color: #fff;
+}
+
+@media (max-width: 640px) {
+  .sectionHead { margin: 22px 0 10px; }
+  .filters {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page .chip { flex: none; }
+}

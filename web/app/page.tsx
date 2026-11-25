@@ -41,6 +41,14 @@ const resultLabels: Record<string, string> = {
   rewards: 'รางวัล',
 };
 
+const MODE_FILTERS = [
+  { key: 'summer', label: 'Summer', test: /summer/i },
+  { key: 'dungeon', label: 'Dungeon', test: /dungeon/i },
+  { key: 'misty-village', label: 'Misty Village', test: /misty\s*village/i },
+  { key: 'misty-tower', label: 'Misty Tower', test: /misty\s*tower/i },
+  { key: 'portals', label: 'Portals', test: /portal/i },
+];
+
 function Heart() {
   const shape =
     'M24 41 C20 38 5 28 5 16 C5 5 18 3 24 12 C30 3 43 5 43 16 C43 28 28 38 24 41 Z';
@@ -194,6 +202,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [notice, setNotice] = useState('');
+  const [modeFilter, setModeFilter] = useState('all');
   const [data, setData] = useState<{
     owner: string;
     reports: Report[];
@@ -275,7 +284,12 @@ export default function Home() {
   const current = data?.owner === user.id ? data : null;
   const reports = current?.reports ?? [];
   const orders = current?.orders ?? [];
-  const groups = groupReports(reports);
+  const allGroups = groupReports(reports);
+  const activeFilter = MODE_FILTERS.find(f => f.key === modeFilter);
+  const groups = activeFilter
+  ? allGroups.filter(g => activeFilter.test.test(g.main.mode ?? ''))
+  : allGroups;
+  const countFor = (test: RegExp) => allGroups.filter(g => test.test(g.main.mode ?? '')).length;
   const matchCount = reports.filter(r => ['victory', 'defeat'].includes(r.result)).length;
   const paid = orders.filter(o => ['active', 'completed'].includes(o.status));
   const pending = orders.filter(o => ['pending_payment', 'pending_review'].includes(o.status)).length;
@@ -337,10 +351,26 @@ export default function Home() {
         )}
 
         <section>
-          <h2>ประวัติแมตช์</h2>
+          <div className={styles.sectionHead}>
+  <h2>ประวัติแมตช์</h2>
+  <div className={styles.filters} role="group" aria-label="กรองตามโหมด">
+    <button type="button" className={styles.chip} aria-pressed={modeFilter === 'all'}
+      onClick={() => setModeFilter('all')}>
+      ทั้งหมด <span>{allGroups.length}</span>
+    </button>
+    {MODE_FILTERS.map(f => (
+      <button key={f.key} type="button" className={styles.chip}
+        aria-pressed={modeFilter === f.key} onClick={() => setModeFilter(f.key)}>
+        {f.label} <span>{countFor(f.test)}</span>
+      </button>
+    ))}
+  </div>
+</div>
           {!current ? <p className={styles.card}>กำลังโหลดประวัติ...</p> :
             groups.length === 0 && !current.error ? (
-              <p className={styles.card}>ยังไม่มีรายงานที่ผูกกับบัญชีนี้</p>
+              <p className={styles.card}>
+  {activeFilter ? 'ไม่มีรายงานในโหมดนี้' : 'ยังไม่มีรายงานที่ผูกกับบัญชีนี้'}
+</p>
             ) : (
               <div className={styles.list}>
                 {groups.map(({ main: r, rewards }) => {
