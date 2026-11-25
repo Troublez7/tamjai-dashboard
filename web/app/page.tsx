@@ -47,6 +47,8 @@ const MODE_FILTERS = [
   { key: 'misty-village', label: 'Misty Village', test: /misty\s*village/i },
   { key: 'misty-tower', label: 'Misty Tower', test: /misty\s*tower/i },
   { key: 'portals', label: 'Portals', test: /portal/i },
+  { key: 'challenge', label: 'Challenge', test: /challenge/i },
+  { key: 'raid', label: 'Raid', test: /raid/i },
 ];
 
 function Heart() {

@@ -444,58 +444,95 @@
   .gallery { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
-/* ปุ่มกรองโหมด */
+/* ===== ปุ่มกรองโหมด (แถบแคปซูล) ===== */
 .sectionHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 28px 0 12px;
+  gap: 16px;
+  margin: 28px 0 14px;
 }
-.page .sectionHead h2 { margin: 0; }
+.page .sectionHead h2 { margin: 0; flex: none; }
 
-.filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgb(255 255 255 / 6%);
+  border: 1px solid #3c3c3c;
+  border-radius: 999px;
+  -webkit-overflow-scrolling: touch;
+}
+.filters::-webkit-scrollbar { display: none; }
 
 .page .chip {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 6px 14px;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px 0 16px;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: #dedede;
-  background: #242424;
-  border: 1.5px solid #595959;
+  white-space: nowrap;
+  color: #bdbdbd;
+  background: transparent;
+  border: 0;
   border-radius: 999px;
+  box-shadow: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 0.55s ease-out, border-color 0.55s ease-out, background 0.2s ease;
-}
-.page .chip span { font-size: 0.78rem; opacity: 0.7; }
-.page .chip:hover { background: #353535; }
-.page .chip:active {
-  border-color: #fff;
-  box-shadow: 0 0 14px 3px rgb(255 255 255 / 70%);
-  transition-duration: 0.08s;
-}
-.page .chip[aria-pressed='true'] {
-  color: #111;
-  background: #e8e8e8;
-  border-color: #fff;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.45s ease-out;
 }
 
-@media (max-width: 640px) {
-  .sectionHead { margin: 22px 0 10px; }
+.page .chip span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #d0d0d0;
+  background: rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  opacity: 1;
+}
+
+.page .chip:hover { color: #fff; background: rgb(255 255 255 / 9%); }
+.page .chip:active {
+  box-shadow: 0 0 12px 2px rgb(255 255 255 / 45%);
+  transition-duration: 0.08s;
+}
+
+.page .chip[aria-pressed='true'] {
+  color: #111;
+  background: #ececec;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 45%);
+}
+.page .chip[aria-pressed='true'] span {
+  color: #111;
+  background: rgb(0 0 0 / 14%);
+}
+
+.page .chip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* แท็บเล็ต / มือถือ: หัวข้ออยู่บน แถบปุ่มเต็มความกว้างใต้หัวข้อ */
+@media (max-width: 900px) {
+  .sectionHead { flex-direction: column; align-items: stretch; gap: 10px; margin: 22px 0 12px; }
+  /* จางขอบขวา ให้รู้ว่าเลื่อนต่อได้ */
   .filters {
-    width: 100%;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+    padding-right: 20px;
   }
-  .page .chip { flex: none; }
+}
+
+@media (max-width: 480px) {
+  .page .chip { min-height: 40px; padding: 0 12px 0 14px; font-size: 0.86rem; }
 }
