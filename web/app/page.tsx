@@ -274,6 +274,18 @@ function pearlsGained(reports: Report[]): Map<string, number> {
   }
   return gained;
 }
+  function toSeconds(t: string): number | null {
+  const parts = t.trim().split(':').map(Number);
+  if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n))) return null;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+}
+
+function formatDuration(total: number): string {
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที ${s} วิ`;
+}
 
 function Starfall() {
   return (
@@ -293,6 +305,7 @@ export default function Home() {
     reports: Report[];
     orders: Order[];
     playCount: number | null;
+        totalSeconds: number | null;
     error: string;
   } | null>(null);
   const userId = user?.id;
@@ -312,7 +325,7 @@ export default function Home() {
     const owner = userId;
 
     async function load() {
-      const [r, o, c] = await Promise.all([
+            const [r, o, c, t] = await Promise.all([
         supabase.from('match_reports')
           .select('id,result,map_name,mode,completion_time,session_time,pearls_session,screenshot_url,created_at,worker_id')
           .order('created_at', { ascending: false }).limit(50),
@@ -322,17 +335,30 @@ export default function Home() {
         supabase.from('match_reports')
           .select('id', { count: 'exact', head: true })
           .in('result', ['victory', 'defeat']),
+        supabase.from('match_reports')
+          .select('completion_time')
+          .in('result', ['victory', 'defeat'])
+          .not('completion_time', 'is', null)
+          .limit(2000),
       ]);
+      const totalSeconds = t.error
+        ? null
+        : (t.data ?? []).reduce(
+            (sum: number, row: { completion_time: string | null }) =>
+              sum + (toSeconds(row.completion_time ?? '') ?? 0),
+            0
+          );
       if (active) setData({
         owner,
         reports: (r.data ?? []) as Report[],
         orders: (o.data ?? []) as Order[],
         playCount: c.error ? null : (c.count ?? 0),
+        totalSeconds,
         error: [r.error?.message, o.error?.message].filter(Boolean).join(' · '),
       });
     }
 
-    void load().catch(() => {
+    void load()owner, reports: [], orders: [], playCount: null,(() => {
       if (active) setData({
         owner, reports: [], orders: [], playCount: null,
         error: 'โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรชหน้าเพื่อลองอีกครั้ง',
@@ -417,7 +443,12 @@ export default function Home() {
             <strong>เข้าสู่ระบบแล้ว ♡</strong>
           </article>
         </section>
-
+                  <article className={styles.card}>
+            <small>เวลาเล่นรวม (Total Time)</small>
+            <strong>
+              {current && current.totalSeconds !== null ? formatDuration(current.totalSeconds) : '…'}
+            </strong>
+          </article>
         {(paid.length > 0 || pending > 0) && (
           <section>
             <h2>งานของคุณ</h2>

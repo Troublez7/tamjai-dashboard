@@ -592,3 +592,11 @@
   border-color: #c9c9c9;
   box-shadow: 0 2px 0 rgb(0 0 0 / 45%), 0 0 12px rgb(255 255 255 / 20%);
 }
+
+/* แถบสถิติ 3 การ์ด */
+.stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats .card:last-child { grid-column: 1 / -1; }
+}
