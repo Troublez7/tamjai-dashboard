@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabaseBrowser } from '../lib/supabase';
 import styles from './dashboard.module.css';
@@ -274,7 +274,8 @@ function pearlsGained(reports: Report[]): Map<string, number> {
   }
   return gained;
 }
-  function toSeconds(t: string): number | null {
+
+function toSeconds(t: string): number | null {
   const parts = t.trim().split(':').map(Number);
   if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n))) return null;
   return parts.reduce((acc, n) => acc * 60 + n, 0);
@@ -288,9 +289,25 @@ function formatDuration(total: number): string {
 }
 
 function Starfall() {
+  const [stars, setStars] = useState<CSSProperties[]>([]);
+
+  useEffect(() => {
+    setStars(Array.from({ length: 8 }, (_, i) => {
+      const size = Math.random();
+      const speed = 11 + Math.random() * 6;
+      return {
+        '--x': `${(i + 0.15 + Math.random() * 0.7) * 12.5}%`,
+        '--width': `${(1 + size * 1.5).toFixed(1)}px`,
+        '--length': `${Math.round(32 + size * 64)}px`,
+        '--speed': `${speed}s`,
+        '--delay': `${-((i + Math.random()) / 8) * speed}s`,
+      } as CSSProperties;
+    }));
+  }, []);
+
   return (
     <div className={styles.starfall} aria-hidden="true">
-      {Array.from({ length: 8 }, (_, i) => <i key={i} />)}
+      {stars.map((style, i) => <i key={i} style={style} />)}
     </div>
   );
 }
@@ -305,7 +322,7 @@ export default function Home() {
     reports: Report[];
     orders: Order[];
     playCount: number | null;
-        totalSeconds: number | null;
+    totalSeconds: number | null;
     error: string;
   } | null>(null);
   const userId = user?.id;
@@ -325,7 +342,7 @@ export default function Home() {
     const owner = userId;
 
     async function load() {
-            const [r, o, c, t] = await Promise.all([
+      const [r, o, c, t] = await Promise.all([
         supabase.from('match_reports')
           .select('id,result,map_name,mode,completion_time,session_time,pearls_session,screenshot_url,created_at,worker_id')
           .order('created_at', { ascending: false }).limit(50),
@@ -358,9 +375,9 @@ export default function Home() {
       });
     }
 
-    void load()owner, reports: [], orders: [], playCount: null,(() => {
+    void load().catch(() => {
       if (active) setData({
-        owner, reports: [], orders: [], playCount: null,
+        owner, reports: [], orders: [], playCount: null, totalSeconds: null,
         error: 'โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรชหน้าเพื่อลองอีกครั้ง',
       });
     });
@@ -386,7 +403,6 @@ export default function Home() {
 
   if (!user) return (
     <main className={styles.page}>
-      <Starfall />
       <section className={`${styles.card} ${styles.login}`}>
         <Brand />
         <h1>เข้าสู่ระบบลูกค้า</h1>
@@ -439,16 +455,17 @@ export default function Home() {
             <strong>{playCount !== null ? playCount.toLocaleString() : '…'}</strong>
           </article>
           <article className={styles.card}>
-            <small>สถานะบัญชี</small>
-            <strong>เข้าสู่ระบบแล้ว ♡</strong>
-          </article>
-        </section>
-                  <article className={styles.card}>
             <small>เวลาเล่นรวม (Total Time)</small>
             <strong>
               {current && current.totalSeconds !== null ? formatDuration(current.totalSeconds) : '…'}
             </strong>
           </article>
+          <article className={styles.card}>
+            <small>สถานะบัญชี</small>
+            <strong>เข้าสู่ระบบแล้ว ♡</strong>
+          </article>
+        </section>
+
         {(paid.length > 0 || pending > 0) && (
           <section>
             <h2>งานของคุณ</h2>
