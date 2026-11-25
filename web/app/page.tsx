@@ -234,9 +234,13 @@ function ModeFilter({ value, options, onChange }: {
   );
 }
 
+const HIDDEN_RESULTS = new Set(['unknown']);
+
 function groupReports(reports: Report[]): Group[] {
   const groups: Group[] = [];
-  const sorted = [...reports].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const sorted = reports
+    .filter(r => !HIDDEN_RESULTS.has(r.result))
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 
   for (const report of sorted) {
     if (report.result === 'rewards') {
@@ -256,6 +260,7 @@ function groupReports(reports: Report[]): Group[] {
 
   return groups.reverse();
 }
+
 
 // Summer Pearls (Session) เป็นยอดสะสมของเซสชัน เลยคิดจำนวนที่ได้เพิ่มจากส่วนต่างของรายงานก่อนหน้า
 // ถ้ายอดลดลงแปลว่าเริ่มเซสชันใหม่ ใช้ยอดปัจจุบันเป็นจำนวนที่ได้
