@@ -281,15 +281,41 @@ function pearlsGained(reports: Report[]): Map<string, number> {
 }
 
 function toSeconds(t: string): number | null {
-  const parts = t.trim().split(':').map(Number);
-  if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n))) return null;
-  return parts.reduce((acc, n) => acc * 60 + n, 0);
+  const value = t.trim();
+  if (!value) return null;
+
+  if (value.includes(':')) {
+    const parts = value.split(':').map(part => Number(part.trim()));
+    if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n) || n < 0)) return null;
+    return parts.reduce((acc, n) => acc * 60 + n, 0);
+  }
+
+  let seconds = 0;
+  let matched = false;
+  const units = [
+    [/(\d+(?:\.\d+)?)\s*(?:ชั่วโมง|ชม\.?|hours?|h)/gi, 3600],
+    [/(\d+(?:\.\d+)?)\s*(?:นาที|mins?|minutes?|m)/gi, 60],
+    [/(\d+(?:\.\d+)?)\s*(?:วินาที|secs?|seconds?|s)/gi, 1],
+  ] as const;
+
+  for (const [pattern, multiplier] of units) {
+    for (const match of value.matchAll(pattern)) {
+      const amount = Number(match[1]);
+      if (Number.isFinite(amount) && amount >= 0) {
+        seconds += amount * multiplier;
+        matched = true;
+      }
+    }
+  }
+
+  return matched ? seconds : null;
 }
 
 function formatDuration(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
+  const safeTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
+  const h = Math.floor(safeTotal / 3600);
+  const m = Math.floor((safeTotal % 3600) / 60);
+  const s = safeTotal % 60;
   if (h > 0) return `${h} ชม. ${m} นาที ${s} วินาที`;
   if (m > 0) return `${m} นาที ${s} วินาที`;
   return `${s} วินาที`;
@@ -361,7 +387,7 @@ export default function Home() {
           .in('result', ['victory', 'defeat']),
         supabase.from('match_reports')
           .select('completion_time')
-          .eq('result', 'victory')
+          .eq('owner_id', owner)
           .not('completion_time', 'is', null)
           .limit(2000),
       ]);
@@ -378,7 +404,7 @@ export default function Home() {
         orders: (o.data ?? []) as Order[],
         playCount: c.error ? null : (c.count ?? 0),
         totalSeconds,
-        error: [r.error?.message, o.error?.message].filter(Boolean).join(' · '),
+        error: [r.error?.message, o.error?.message, t.error?.message].filter(Boolean).join(' · '),
       });
     }
 
@@ -537,7 +563,9 @@ export default function Home() {
                       <div className={styles.tagRow}>
                         <span className={styles.tag}>🎮 {r.mode ?? 'ไม่พบข้อมูลโหมด'}</span>
                         {r.completion_time && (
-                          <span className={styles.tag}>⏱️ Total Time <b>{r.completion_time}</b></span>
+                          <span className={styles.tag}>
+                            ⏱️ Total Time <b>{formatDuration(toSeconds(r.completion_time) ?? 0)}</b>
+                          </span>
                         )}
                         {isSummer && gained !== undefined && (
                           <span className={`${styles.tag} ${styles.tagPearl}`}>
