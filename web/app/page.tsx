@@ -290,7 +290,9 @@ function formatDuration(total: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return h > 0 ? `${h} H ${m} M` : `${m} M ${s} S`;
+  if (h > 0) return `${h} ชม. ${m} นาที ${s} วินาที`;
+  if (m > 0) return `${m} นาที ${s} วินาที`;
+  return `${s} วินาที`;
 }
 
 function Starfall() {
