@@ -359,7 +359,7 @@ export default function Home() {
           .in('result', ['victory', 'defeat']),
         supabase.from('match_reports')
           .select('completion_time')
-          .in('result', ['victory', 'defeat'])
+          .eq('result', 'victory')
           .not('completion_time', 'is', null)
           .limit(2000),
       ]);
@@ -460,7 +460,7 @@ export default function Home() {
             <strong>{playCount !== null ? playCount.toLocaleString() : '…'}</strong>
           </article>
           <article className={styles.card}>
-            <small>เวลาเล่นรวม (Total Time)</small>
+            <small>(Total Time)</small>
             <strong>
               {current && current.totalSeconds !== null ? formatDuration(current.totalSeconds) : '…'}
             </strong>
