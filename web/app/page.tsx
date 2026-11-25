@@ -31,7 +31,7 @@ type Order = {
 type Group = { main: Report; rewards: Report[] };
 
 const supabase = supabaseBrowser();
-// ใส่ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/
+// ลิงก์เชิญถาวรของเซิร์ฟเวอร์ (ห้ามมีตัวอักษรไทย) เช่น https://discord.gg/abc123
 const DISCORD_INVITE = 'https://discord.gg/dsdssdsddsdsdsdsdssdsddsdsds';
 
 const resultLabels: Record<string, string> = {
@@ -169,6 +169,72 @@ function DiscordProfile({ user }: { user: User }) {
   );
 }
 
+type ModeOption = { key: string; label: string; count: number };
+
+function ModeFilter({ value, options, onChange }: {
+  value: string;
+  options: ModeOption[];
+  onChange: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = options.find(o => o.key === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className={styles.dropdown} ref={ref}>
+      <button
+        type="button"
+        className={styles.dropBtn}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className={styles.dropLabel}>{current.label}</span>
+        <em>{current.count}</em>
+        <svg className={styles.chevron} width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <ul className={styles.dropMenu} role="listbox" aria-label="เลือกโหมด">
+          {options.map(o => (
+            <li key={o.key} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.key === value}
+                className={styles.dropItem}
+                onClick={() => { onChange(o.key); setOpen(false); }}
+              >
+                <span>{o.label}</span>
+                <em>{o.count}</em>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function groupReports(reports: Report[]): Group[] {
   const groups: Group[] = [];
   const sorted = [...reports].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
@@ -272,7 +338,7 @@ export default function Home() {
 
   if (!user) return (
     <main className={styles.page}>
-  <Starfall />
+      <Starfall />
       <section className={`${styles.card} ${styles.login}`}>
         <Brand />
         <h1>เข้าสู่ระบบลูกค้า</h1>
@@ -289,8 +355,8 @@ export default function Home() {
   const allGroups = groupReports(reports);
   const activeFilter = MODE_FILTERS.find(f => f.key === modeFilter);
   const groups = activeFilter
-  ? allGroups.filter(g => activeFilter.test.test(g.main.mode ?? ''))
-  : allGroups;
+    ? allGroups.filter(g => activeFilter.test.test(g.main.mode ?? ''))
+    : allGroups;
   const countFor = (test: RegExp) => allGroups.filter(g => test.test(g.main.mode ?? '')).length;
   const matchCount = reports.filter(r => ['victory', 'defeat'].includes(r.result)).length;
   const paid = orders.filter(o => ['active', 'completed'].includes(o.status));
@@ -301,6 +367,7 @@ export default function Home() {
 
   return (
     <main className={styles.page}>
+      <Starfall />
       <div className={styles.wrap}>
         <header className={styles.header}>
           <div>
@@ -354,25 +421,22 @@ export default function Home() {
 
         <section>
           <div className={styles.sectionHead}>
-  <h2>ประวัติแมตช์</h2>
-  <div className={styles.filters} role="group" aria-label="กรองตามโหมด">
-    <button type="button" className={styles.chip} aria-pressed={modeFilter === 'all'}
-      onClick={() => setModeFilter('all')}>
-      ทั้งหมด <span>{allGroups.length}</span>
-    </button>
-    {MODE_FILTERS.map(f => (
-      <button key={f.key} type="button" className={styles.chip}
-        aria-pressed={modeFilter === f.key} onClick={() => setModeFilter(f.key)}>
-        {f.label} <span>{countFor(f.test)}</span>
-      </button>
-    ))}
-  </div>
-</div>
+            <h2>ประวัติแมตช์</h2>
+            <ModeFilter
+              value={modeFilter}
+              onChange={setModeFilter}
+              options={[
+                { key: 'all', label: 'ทั้งหมด', count: allGroups.length },
+                ...MODE_FILTERS.map(f => ({ key: f.key, label: f.label, count: countFor(f.test) })),
+              ]}
+            />
+          </div>
+
           {!current ? <p className={styles.card}>กำลังโหลดประวัติ...</p> :
             groups.length === 0 && !current.error ? (
               <p className={styles.card}>
-  {activeFilter ? 'ไม่มีรายงานในโหมดนี้' : 'ยังไม่มีรายงานที่ผูกกับบัญชีนี้'}
-</p>
+                {activeFilter ? 'ไม่มีรายงานในโหมดนี้' : 'ยังไม่มีรายงานที่ผูกกับบัญชีนี้'}
+              </p>
             ) : (
               <div className={styles.list}>
                 {groups.map(({ main: r, rewards }) => {

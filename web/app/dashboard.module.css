@@ -177,7 +177,7 @@
   .gallery a { border-radius: 5px; }
 }
 
-/* ธีมกลางคืน — วางท้าย dashboard.module.css */
+/* ธีมกลางคืน */
 .page {
   --scene-light: 0.28;
   position: relative;
@@ -328,6 +328,7 @@
   from { transform: translateY(0); }
   to   { transform: translateY(calc(100vh + 110px)); }
 }
+
 .page .login { position: relative; z-index: 1; }
 
 /* ปุ่มทุกปุ่ม: แตะแล้วมีแสงขาวสว่างออกจากกรอบ แล้วค่อย ๆ จางหาย */
@@ -360,9 +361,9 @@
 
 .discordBtn { will-change: transform; }
 
-/* ===== Responsive: คอม 16:9 และมือถือแนวตั้ง 9:16 (วางท้ายไฟล์) ===== */
+/* ===== Responsive: คอม 16:9 และมือถือแนวตั้ง 9:16 ===== */
 
-/* ทุกจอ: แกลเลอรี 3 ช่องต่อแถว (เดิมเป็น 5) */
+/* ทุกจอ: แกลเลอรี 3 ช่องต่อแถว */
 .gallery {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
@@ -444,7 +445,7 @@
   .gallery { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
-/* ===== ปุ่มกรองโหมด (แถบแคปซูล) ===== */
+/* ===== หัวข้อประวัติแมตช์ + เมนูเลือกโหมดแบบเลื่อนลง ===== */
 .sectionHead {
   display: flex;
   align-items: center;
@@ -454,85 +455,104 @@
 }
 .page .sectionHead h2 { margin: 0; flex: none; }
 
-.filters {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  background: rgb(255 255 255 / 6%);
-  border: 1px solid #3c3c3c;
-  border-radius: 999px;
-  -webkit-overflow-scrolling: touch;
-}
-.filters::-webkit-scrollbar { display: none; }
+.dropdown { position: relative; flex: none; }
 
-.page .chip {
-  flex: none;
+.page .dropBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 14px 0 16px;
+  gap: 10px;
+  min-width: 200px;
+  min-height: 44px;
+  padding: 0 16px;
   font: inherit;
-  font-size: 0.88rem;
   font-weight: 700;
-  white-space: nowrap;
-  color: #bdbdbd;
-  background: transparent;
-  border: 0;
+  color: #dedede;
+  background: #242424;
+  border: 1.5px solid #595959;
   border-radius: 999px;
-  box-shadow: none;
+  box-shadow: 0 2px 0 #080808;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.45s ease-out;
+  transition: box-shadow 0.55s ease-out, border-color 0.55s ease-out, background 0.2s ease;
 }
+.page .dropBtn:hover { background: #353535; }
+.page .dropBtn:active,
+.page .dropBtn[aria-expanded='true'] {
+  border-color: #fff;
+  box-shadow: 0 0 14px 3px rgb(255 255 255 / 45%);
+  transition-duration: 0.08s;
+}
+.dropLabel { flex: 1; text-align: left; }
 
-.page .chip span {
+.page .dropBtn em,
+.page .dropItem em {
   display: inline-grid;
   place-items: center;
-  min-width: 22px;
+  min-width: 24px;
   height: 22px;
-  padding: 0 6px;
-  font-size: 0.74rem;
+  padding: 0 7px;
+  font-size: 0.76rem;
+  font-style: normal;
   font-weight: 800;
   color: #d0d0d0;
   background: rgb(255 255 255 / 12%);
   border-radius: 999px;
-  opacity: 1;
 }
 
-.page .chip:hover { color: #fff; background: rgb(255 255 255 / 9%); }
-.page .chip:active {
-  box-shadow: 0 0 12px 2px rgb(255 255 255 / 45%);
-  transition-duration: 0.08s;
+.chevron { flex: none; transition: transform 0.2s ease; }
+.page .dropBtn[aria-expanded='true'] .chevron { transform: rotate(180deg); }
+
+.dropMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 100%;
+  max-height: min(60vh, 360px);
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  background: rgb(22 22 22 / 98%);
+  border: 1.5px solid #484848;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 55%);
+  animation: dropIn 0.16s ease-out;
+}
+.dropMenu li { margin: 0; padding: 0; }
+
+.page .dropItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px 0 14px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  color: #d6d6d6;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: none;
+  cursor: pointer;
+}
+.page .dropItem:hover { background: rgb(255 255 255 / 9%); }
+.page .dropItem[aria-selected='true'] { color: #111; background: #ececec; }
+.page .dropItem[aria-selected='true'] em { color: #111; background: rgb(0 0 0 / 14%); }
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.page .chip[aria-pressed='true'] {
-  color: #111;
-  background: #ececec;
-  box-shadow: 0 1px 6px rgb(0 0 0 / 45%);
-}
-.page .chip[aria-pressed='true'] span {
-  color: #111;
-  background: rgb(0 0 0 / 14%);
-}
-
-.page .chip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-
-/* แท็บเล็ต / มือถือ: หัวข้ออยู่บน แถบปุ่มเต็มความกว้างใต้หัวข้อ */
+/* แท็บเล็ต / มือถือ: หัวข้ออยู่บน ปุ่มเต็มความกว้างใต้หัวข้อ เมนูกางเต็มความกว้างเท่ากัน */
 @media (max-width: 900px) {
   .sectionHead { flex-direction: column; align-items: stretch; gap: 10px; margin: 22px 0 12px; }
-  /* จางขอบขวา ให้รู้ว่าเลื่อนต่อได้ */
-  .filters {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
-    padding-right: 20px;
-  }
-}
-
-@media (max-width: 480px) {
-  .page .chip { min-height: 40px; padding: 0 12px 0 14px; font-size: 0.86rem; }
+  .dropdown { width: 100%; }
+  .page .dropBtn { width: 100%; }
+  .dropMenu { left: 0; right: 0; }
 }
