@@ -19,7 +19,15 @@ export function parseReport(message) {
     const f = fields.find((x) => wanted.includes(normalize(x.name)));
     return f ? String(f.value ?? '').replace(/[*_`~]/g, '').trim() : null;
   };
-  const timeOnly = (v) => v?.match(/\d{1,2}(?::\d{2}){1,2}/)?.[0] ?? null;
+  const timeOnly = (v) => {
+  if (!v) return null;
+
+  const value = String(v)
+    .replace(/[*_`~]/g, '')
+    .trim();
+
+  return value || null;
+};
 
   // Decide result from the title first, then fall back to the whole text.
   const title = `${message.content ?? ''}\n${embed?.title ?? ''}`;
