@@ -290,7 +290,7 @@ function formatDuration(total: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที ${s} วิ`;
+  return h > 0 ? `${h} H ${m} M` : `${m} M ${s} S`;
 }
 
 function Starfall() {
@@ -503,7 +503,7 @@ export default function Home() {
               value={modeFilter}
               onChange={setModeFilter}
               options={[
-                { key: 'all', label: 'ทั้งหมด', count: allGroups.length },
+                { key: 'all', label: 'ทั้งหมด', count: playCount ?? 0 },
                 ...MODE_FILTERS.map(f => ({ key: f.key, label: f.label, count: countFor(f.test) })),
               ]}
             />
