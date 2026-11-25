@@ -12,9 +12,8 @@ type Report = {
   mode: string | null;
   completion_time: string | null;
   session_time: string | null;
-  wins_losses: string | null;
+  pearls_session: number | null;
   screenshot_url: string | null;
-  raw_text: string;
   created_at: string;
   worker_id: string;
 };
@@ -258,6 +257,24 @@ function groupReports(reports: Report[]): Group[] {
   return groups.reverse();
 }
 
+// Summer Pearls (Session) เป็นยอดสะสมของเซสชัน เลยคิดจำนวนที่ได้เพิ่มจากส่วนต่างของรายงานก่อนหน้า
+// ถ้ายอดลดลงแปลว่าเริ่มเซสชันใหม่ ใช้ยอดปัจจุบันเป็นจำนวนที่ได้
+function pearlsGained(reports: Report[]): Map<string, number> {
+  const gained = new Map<string, number>();
+  const lastByWorker = new Map<string, number>();
+  const sorted = reports
+    .filter(r => (r.result === 'victory' || r.result === 'defeat') && r.pearls_session != null)
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+
+  for (const r of sorted) {
+    const current = Number(r.pearls_session);
+    const previous = lastByWorker.get(r.worker_id);
+    if (previous !== undefined) gained.set(r.id, current >= previous ? current - previous : current);
+    lastByWorker.set(r.worker_id, current);
+  }
+  return gained;
+}
+
 function Starfall() {
   return (
     <div className={styles.starfall} aria-hidden="true">
@@ -275,6 +292,7 @@ export default function Home() {
     owner: string;
     reports: Report[];
     orders: Order[];
+    playCount: number | null;
     error: string;
   } | null>(null);
   const userId = user?.id;
@@ -294,25 +312,29 @@ export default function Home() {
     const owner = userId;
 
     async function load() {
-      const [r, o] = await Promise.all([
+      const [r, o, c] = await Promise.all([
         supabase.from('match_reports')
-          .select('id,result,map_name,mode,completion_time,session_time,wins_losses,screenshot_url,raw_text,created_at,worker_id')
+          .select('id,result,map_name,mode,completion_time,session_time,pearls_session,screenshot_url,created_at,worker_id')
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('orders')
           .select('id,metric,target,progress,status,created_at')
           .order('created_at', { ascending: false }),
+        supabase.from('match_reports')
+          .select('id', { count: 'exact', head: true })
+          .in('result', ['victory', 'defeat']),
       ]);
       if (active) setData({
         owner,
         reports: (r.data ?? []) as Report[],
         orders: (o.data ?? []) as Order[],
+        playCount: c.error ? null : (c.count ?? 0),
         error: [r.error?.message, o.error?.message].filter(Boolean).join(' · '),
       });
     }
 
     void load().catch(() => {
       if (active) setData({
-        owner, reports: [], orders: [],
+        owner, reports: [], orders: [], playCount: null,
         error: 'โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรชหน้าเพื่อลองอีกครั้ง',
       });
     });
@@ -353,12 +375,14 @@ export default function Home() {
   const reports = current?.reports ?? [];
   const orders = current?.orders ?? [];
   const allGroups = groupReports(reports);
+  const gainedMap = pearlsGained(reports);
   const activeFilter = MODE_FILTERS.find(f => f.key === modeFilter);
   const groups = activeFilter
     ? allGroups.filter(g => activeFilter.test.test(g.main.mode ?? ''))
     : allGroups;
   const countFor = (test: RegExp) => allGroups.filter(g => test.test(g.main.mode ?? '')).length;
-  const matchCount = reports.filter(r => ['victory', 'defeat'].includes(r.result)).length;
+  const loadedPlays = reports.filter(r => ['victory', 'defeat'].includes(r.result)).length;
+  const playCount = current ? (current.playCount ?? loadedPlays) : null;
   const paid = orders.filter(o => ['active', 'completed'].includes(o.status));
   const pending = orders.filter(o => ['pending_payment', 'pending_review'].includes(o.status)).length;
   const target = paid.reduce((sum, o) => sum + Number(o.target), 0);
@@ -385,8 +409,8 @@ export default function Home() {
 
         <section className={styles.stats}>
           <article className={styles.card}>
-            <small>แมตช์ล่าสุด (ชนะ/แพ้)</small>
-            <strong>{current ? matchCount : '…'}</strong>
+            <small>จำนวนครั้งการเล่น</small>
+            <strong>{playCount !== null ? playCount.toLocaleString() : '…'}</strong>
           </article>
           <article className={styles.card}>
             <small>สถานะบัญชี</small>
@@ -443,6 +467,8 @@ export default function Home() {
                   const shots = [r, ...rewards].filter(
                     (s): s is Report & { screenshot_url: string } => Boolean(s.screenshot_url)
                   );
+                  const isSummer = /summer/i.test(r.mode ?? '');
+                  const gained = gainedMap.get(r.id);
 
                   return (
                     <article key={r.id} className={styles.card}>
@@ -452,13 +478,22 @@ export default function Home() {
                           {resultLabels[r.result] ?? r.result}
                         </span>
                       </div>
-                      <p>
-                        {r.mode ?? 'ไม่พบข้อมูลโหมด'}
-                        {r.completion_time ? ` · ใช้เวลา ${r.completion_time}` :
-                          r.session_time ? ` · เวลาเล่น ${r.session_time}` : ''}
-                        {r.wins_losses && ` · W/L ${r.wins_losses}`}
-                        {rewards.length > 0 && ` · รางวัล ${rewards.length}`}
-                      </p>
+
+                      <div className={styles.tagRow}>
+                        <span className={styles.tag}>🎮 {r.mode ?? 'ไม่พบข้อมูลโหมด'}</span>
+                        {r.completion_time && (
+                          <span className={styles.tag}>⏱️ Total Time <b>{r.completion_time}</b></span>
+                        )}
+                        {isSummer && gained !== undefined && (
+                          <span className={`${styles.tag} ${styles.tagPearl}`}>
+                            💎 Summer Pearls <b>+{gained.toLocaleString()}</b>
+                          </span>
+                        )}
+                        {rewards.length > 0 && (
+                          <span className={styles.tag}>🎁 รางวัล <b>{rewards.length}</b></span>
+                        )}
+                      </div>
+
                       <small>{new Date(r.created_at).toLocaleString('th-TH')}</small>
 
                       {shots.length > 0 && (
@@ -472,11 +507,6 @@ export default function Home() {
                           ))}
                         </div>
                       )}
-
-                      <details className={styles.details}>
-                        <summary>ดูข้อมูลรายงาน</summary>
-                        <pre>{[r, ...rewards].map(s => s.raw_text).join('\n\n---\n\n')}</pre>
-                      </details>
                     </article>
                   );
                 })}
