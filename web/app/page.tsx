@@ -355,7 +355,6 @@ export default function Home() {
     reports: Report[];
     orders: Order[];
     playCount: number | null;
-    totalSeconds: number | null;
     error: string;
   } | null>(null);
   const userId = user?.id;
@@ -374,8 +373,8 @@ export default function Home() {
     if (!userId) return;
     const owner = userId;
 
-    async function load() {
-      const [r, o, c, t] = await Promise.all([
+        async function load() {
+      const [r, o, c] = await Promise.all([
         supabase.from('match_reports')
           .select('id,result,map_name,mode,completion_time,session_time,pearls_session,screenshot_url,created_at,worker_id')
           .order('created_at', { ascending: false }).limit(50),
@@ -385,32 +384,19 @@ export default function Home() {
         supabase.from('match_reports')
           .select('id', { count: 'exact', head: true })
           .in('result', ['victory', 'defeat']),
-        supabase.from('match_reports')
-          .select('completion_time')
-          .eq('owner_id', owner)
-          .not('completion_time', 'is', null)
-          .limit(2000),
       ]);
-      const totalSeconds = t.error
-        ? null
-        : (t.data ?? []).reduce(
-            (sum: number, row: { completion_time: string | null }) =>
-              sum + (toSeconds(row.completion_time ?? '') ?? 0),
-            0
-          );
       if (active) setData({
         owner,
         reports: (r.data ?? []) as Report[],
         orders: (o.data ?? []) as Order[],
         playCount: c.error ? null : (c.count ?? 0),
-        totalSeconds,
-        error: [r.error?.message, o.error?.message, t.error?.message].filter(Boolean).join(' · '),
+        error: [r.error?.message, o.error?.message].filter(Boolean).join(' · '),
       });
     }
 
     void load().catch(() => {
       if (active) setData({
-        owner, reports: [], orders: [], playCount: null, totalSeconds: null,
+        owner, reports: [], orders: [], playCount: null,
         error: 'โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรชหน้าเพื่อลองอีกครั้ง',
       });
     });
@@ -460,9 +446,27 @@ export default function Home() {
   const playCount = current ? (current.playCount ?? loadedPlays) : null;
   const paid = orders.filter(o => ['active', 'completed'].includes(o.status));
   const pending = orders.filter(o => ['pending_payment', 'pending_review'].includes(o.status)).length;
-  const target = paid.reduce((sum, o) => sum + Number(o.target), 0);
-  const progress = paid.reduce((sum, o) => sum + Number(o.progress), 0);
-  const pct = target > 0 ? Math.max(0, Math.min(100, Math.floor(progress / target * 100))) : 0;
+    type Bar = { key: string; title: string; text: string; pct: number; done: boolean; count: number };
+  const hours = (sec: number) => {
+    const v = sec / 3600;
+    return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  };
+  const bars: Bar[] = [];
+  const addBar = (key: string, title: string, list: Order[], fmt: (n: number) => string, unit: string) => {
+    if (list.length === 0) return;
+    const t = list.reduce((s, o) => s + Number(o.target), 0);
+    const p = list.reduce((s, o) => s + Number(o.progress), 0);
+    bars.push({
+      key,
+      title: `${title} ${fmt(t)}${unit}`,
+      text: `${fmt(p)} / ${fmt(t)}${unit}`,
+      pct: t > 0 ? Math.max(0, Math.min(100, Math.floor((p / t) * 100))) : 0,
+      done: list.every(o => o.status === 'completed'),
+      count: list.length,
+    });
+  };
+  addBar('pearls', 'Summer Pearls', paid.filter(o => o.metric !== 'time_seconds'), n => n.toLocaleString(), '');
+  addBar('time', 'เหมาฟาร์ม', paid.filter(o => o.metric === 'time_seconds'), hours, ' ชม.');
 
   return (
     <main className={styles.page}>
@@ -488,41 +492,48 @@ export default function Home() {
             <strong>{playCount !== null ? playCount.toLocaleString() : '…'}</strong>
           </article>
           <article className={styles.card}>
-            <small>(Total Time)</small>
-            <strong>
-              {current && current.totalSeconds !== null ? formatDuration(current.totalSeconds) : '…'}
-            </strong>
-          </article>
-          <article className={styles.card}>
             <small>สถานะบัญชี</small>
             <strong>เข้าสู่ระบบแล้ว ♡</strong>
           </article>
         </section>
 
-        {(paid.length > 0 || pending > 0) && (
-          <section>
-            <h2>งานของคุณ</h2>
-            {paid.length > 0 && (
-              <article className={styles.card}>
-                <div className={styles.row}>
-                  <strong>Summer Pearls {target.toLocaleString()}</strong>
-                  <span className={styles.badge}>
-                    {paid.every(o => o.status === 'completed') ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}
-                  </span>
-                </div>
-                <div className={styles.track} role="progressbar" aria-label="ความคืบหน้าของงาน"
-                  aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-                  <div style={{ width: `${pct}%` }} />
-                </div>
-                <small>
-                  {progress.toLocaleString()} / {target.toLocaleString()} · {pct}%
-                  {paid.length > 1 && ` · รวม ${paid.length} ออเดอร์`}
-                </small>
-              </article>
-            )}
-            {pending > 0 && <p className={styles.muted}>มี {pending} ออเดอร์รอตรวจสอบการชำระเงิน</p>}
-          </section>
-        )}
+        {<section>
+          <h2>งานของคุณ</h2>
+          {bars.length === 0 ? (
+            <article className={styles.card}>
+              <div className={styles.row}>
+                <strong>ยังไม่มีงาน</strong>
+                <span className={styles.badge}>รอดำเนินการ</span>
+              </div>
+              <div className={styles.track} role="progressbar" aria-label="ความคืบหน้าของงาน"
+                aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}>
+                <div style={{ width: '0%' }} />
+              </div>
+              <small>รอคำสั่งซื้อ · 0%</small>
+            </article>
+          ) : (
+            <div className={styles.list} style={{ gridTemplateColumns: '1fr' }}>
+              {bars.map(b => (
+                <article key={b.key} className={styles.card}>
+                  <div className={styles.row}>
+                    <strong>{b.title}</strong>
+                    <span className={styles.badge}>{b.done ? 'เสร็จแล้ว' : 'กำลังฟาร์ม'}</span>
+                  </div>
+                  <div className={styles.track} role="progressbar" aria-label="ความคืบหน้าของงาน"
+                    aria-valuemin={0} aria-valuemax={100} aria-valuenow={b.pct}>
+                    <div style={{ width: `${b.pct}%` }} />
+                  </div>
+                  <small>
+                    {b.text} · {b.pct}%
+                    {b.count > 1 && ` · รวม ${b.count} ออเดอร์`}
+                  </small>
+                </article>
+              ))}
+            </div>
+          )}
+          {pending > 0 && <p className={styles.muted}>มี {pending} ออเดอร์รอตรวจสอบการชำระเงิน</p>}
+        </section>
+        }
 
         <section>
           <div className={styles.sectionHead}>

@@ -30,6 +30,29 @@ const required = [
 for (const key of required) if (!process.env[key]) throw new Error(`Missing ${key} in .env`);
 
 const BUCKET = 'screenshots';
+function toSeconds(t) {
+  if (!t) return null;
+  const parts = String(t).trim().split(':').map(Number);
+  if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n) || n < 0)) return null;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+}
+
+function hoursText(sec) {
+  const v = Number(sec) / 3600;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function formatTarget(metric, value) {
+  return metric === 'time_seconds'
+    ? `${hoursText(value)} ชั่วโมง`
+    : `${Number(value).toLocaleString()} Pearls`;
+}
+
+function formatProgress(metric, progress, target) {
+  return metric === 'time_seconds'
+    ? `${hoursText(progress)} / ${hoursText(target)} ชั่วโมง`
+    : `${Number(progress).toLocaleString()} / ${Number(target).toLocaleString()} Pearls`;
+}
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false }
@@ -47,9 +70,9 @@ const client = new Client({
 
 // รายการแพ็กเกจของร้าน Tamjai
 const PACKAGES = {
-  pkg_pearl_1k: { name: 'ฟาร์ม 1,000 Pearls', target: 1000, price: 50 },
-  pkg_pearl_5k: { name: 'ฟาร์ม 5,000 Pearls', target: 5000, price: 230 },
-  pkg_time_1d:  { name: 'เหมาฟาร์ม 1 วัน (24 ชม.)', target: 99999, price: 69 }
+  pkg_pearl_1k: { name: 'ฟาร์ม 1,000 Pearls', metric: 'summer_pearls', target: 1000, price: 50 },
+  pkg_pearl_5k: { name: 'ฟาร์ม 5,000 Pearls', metric: 'summer_pearls', target: 5000, price: 230 },
+  pkg_time_1d:  { name: 'เหมาฟาร์ม 1 วัน (24 ชม.)', metric: 'time_seconds', target: 86400, price: 69 }
 };
 
 // --- ฟังก์ชันเดิมของ Tamjai ---
@@ -78,7 +101,8 @@ async function updateOrderProgress(worker, report) {
   if (!['victory', 'defeat'].includes(report.result) || report.pearls_session == null) return;
   const { data: orders, error } = await supabase.from('orders')
     .select('id, target, progress, last_session_value')
-    .eq('worker_id', worker.id).eq('status', 'active')
+    .eq('worker_id', worker.id).eq('status', 'active').eq('metric', 'summer_pearls')
+
     .order('created_at', { ascending: true });
   if (error || !orders?.length) return;
 
@@ -101,9 +125,35 @@ async function updateOrderProgress(worker, report) {
   }
   console.log(`Order progress updated (+${current - (last ?? current)})`);
 }
+  // ออเดอร์แบบเหมาวัน: บวก Total Time ของรอบที่ชนะ (นับหลังออเดอร์เป็น active เท่านั้น)
+async function updateTimeProgress(worker, report) {
+  if (report.result !== 'victory') return;
+  const seconds = toSeconds(report.completion_time);
+  if (!seconds) return;
+
+  const { data: orders, error } = await supabase.from('orders')
+    .select('id, target, progress')
+    .eq('worker_id', worker.id).eq('status', 'active').eq('metric', 'time_seconds')
+    .order('created_at', { ascending: true });
+  if (error || !orders?.length) return;
+
+  let remaining = seconds;
+  for (const o of orders) {
+    const add = Math.min(Number(o.target) - Number(o.progress), remaining);
+    const progress = Number(o.progress) + add;
+    remaining -= add;
+    const done = progress >= Number(o.target);
+    await supabase.from('orders').update({
+      progress,
+      ...(done ? { status: 'completed', completed_at: new Date().toISOString() } : {})
+    }).eq('id', o.id);
+    if (remaining <= 0) break;
+  }
+  console.log(`Time progress +${seconds}s`);
+}
 
 // --- ฟังก์ชันสร้างแผงควบคุมในห้องงาน ---
-function createControlPanel(orderCode, pkgName, target) {
+function createControlPanel(orderCode, pkgName, targetText) { {
   const embed = new EmbedBuilder()
     .setColor('#00E676')
     .setTitle(`🎮 ออเดอร์ [${orderCode}] - กำลังดำเนินการ`)
@@ -161,7 +211,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 
       if (code) {
         const { data: order } = await supabase.from('orders')
-          .select('id, order_code, channel_id, package_name, target')
+          .select('id, order_code, channel_id, package_name, target, metric')
           .eq('order_code', code).maybeSingle();
         const pkg = Object.values(PACKAGES).find(p => p.name === order?.package_name);
 
@@ -192,7 +242,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
                   .catch(e => console.error('QR cleanup failed:', e.message));
               }
 
-              const panel = createControlPanel(order.order_code, order.package_name, order.target);
+              const panel = createControlPanel(order.order_code, order.package_name, formatTarget(order.metric, order.target));
               await ch.send({
                 content: `✅ รับชำระแล้ว ${pkg.price} บาท เริ่มงานได้เลย`,
                 embeds: panel.embeds,
@@ -338,6 +388,7 @@ client.on('interactionCreate', async (interaction) => {
         channel_id: channel.id,
         package_name: pkg.name,
         target: pkg.target,
+        metric: pkg.metric,
         progress: 0,
         status: 'pending_payment'
       };
@@ -423,7 +474,7 @@ client.on('interactionCreate', async (interaction) => {
         let order = null;
         const { data: orderData, error: orderErr } = await supabase
           .from('orders')
-          .select('id, order_code, worker_id, progress, target')
+          .select('id, order_code, worker_id, progress, target, metric')
           .or(`order_code.eq.${orderCode},channel_id.eq.${interaction.channelId}`)
           .maybeSingle();
 
@@ -522,6 +573,7 @@ client.on('messageCreate', async (message) => {
     if (error) throw error;
 
     await updateOrderProgress(worker, report);
+    await updateTimeProgress(worker, report);
     console.log(`Saved report from worker ${worker.name}: ${report.result}`);
   } catch (error) {
     console.error('Could not process Discord report:', error.message);
