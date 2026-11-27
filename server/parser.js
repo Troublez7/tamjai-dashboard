@@ -52,7 +52,7 @@ export function parseReport(message) {
     result,
     map_name: fieldValue('Map') ?? get(/(?:Map\s*\n|Map\s*:\s*)([^\n]+)/i),
     mode: fieldValue('Mode') ?? get(/(?:Mode\s*\n|Mode\s*:\s*)([^\n]+)/i),
-    completion_time,
+    completion_time: get(/(?:Total\s+Time|Completion\s+Time)[\s:*]*([0-9]{1,2}(?::[0-9]{2}){1,2})/i),
     session_time,
     wins_losses: clean(fieldValue('Wins / Losses', 'Wins/Losses') ?? get(/Wins\s*\/\s*Losses[\s*:]*([^\n]+)/i)),
     pearls_session: (() => {
